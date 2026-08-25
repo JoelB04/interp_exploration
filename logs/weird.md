@@ -24,3 +24,10 @@ Format: `YYYY-MM-DD — observation. (where it came up)`
   ('imates', 'otty', '=sub'). The chat directions give clean correctness
   vocabulary (' incorrect', ' invalid', ' Neither', 'yes', ' ✓'). Same probe
   method, same model, different readout token. (s3b)
+- 2026-08-25 — Val-based layer selection is unstable: `cities` picks anywhere in
+  layers 16-28 across 20 split repeats (mode 16, only 7/20). `companies` picks
+  layer 27 in 4/20 and ranges 16-28. Layer choice drives most of the transfer
+  variance. (s3c)
+- 2026-08-25 — Some transfer cells are effectively BIMODAL across splits:
+  chat `cities → neg_cities` = 0.587 +/- 0.44, i.e. sometimes ~0.95 and
+  sometimes ~0.05. A single split reads as a clean finding either way. (s3c)

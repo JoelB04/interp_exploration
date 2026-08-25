@@ -210,3 +210,57 @@ the science. It says the script does what it claims. It says nothing about Qwen.
 One caveat it exposed: 64 cells at a two-sided 95% threshold means roughly 3
 false stars expected by chance, and the synthetic run showed a few. Do not read
 individual starred cells as findings without a multiple-comparisons correction.
+
+
+---
+
+## 2026-08-25 — session 3c: error bars
+
+**Question.** How much of session 3/3b depends on which split I happened to draw?
+
+**Prediction (written before running).** *(not recorded)*
+
+**Setup.** `scripts/06_stability.py`. 20 resampled group-aware 60/20/20 splits on
+the SAME cached 400-example draw. Cosines recomputed from the direction vectors
+at full precision rather than read off a printed table.
+
+Scope of the bars, and this matters: split sensitivity only. The 400 rows per
+dataset, the model and the weights are all fixed, and test sets overlap heavily
+across repeats. These bars say "does the result depend on where I cut the data".
+They do NOT say "would this replicate on fresh data".
+
+**Result. Two session-3 conclusions do not survive.**
+
+1. "Chat mode fixes negation for cities" was a single-split artifact.
+   chat `cities → neg_cities` = 0.587 +/- 0.44 over 20 splits; the 0.951 logged
+   in session 3 was one draw. `neg_cities → cities` = 0.511 +/- 0.46. Both are
+   effectively bimodal, flipping between ~0.95 and ~0.05.
+
+2. The raw-mode answer-cosine correlation is largely a negation confound.
+   rho = +0.738 on all 8, but +0.371 on the six non-negated datasets. Raw
+   cosines also sit at the random-direction floor (mean |cos| 0.038 vs 0.026),
+   so there is little real signal for them to carry.
+
+**What does survive.**
+
+- sp_en_trans anti-generalisation is rock solid: 0.013 +/- 0.03 and
+  0.026 +/- 0.03. Diagonals are all 0.98-1.00 +/- <=0.01.
+- The CHAT answer-cosine result is robust. rho = +0.760 +/- 0.220 over splits,
+  90% interval [+0.251, +0.929], never crossing zero. Leave-one-family-out
+  gives 0.929-0.952. Dropping both negated datasets leaves +0.943, so it is NOT
+  the negation confound that sinks the raw version. Chat cosines are ~5x the
+  random floor (0.123).
+- In-distribution AUROC anti-predicts transfer in both modes:
+  -0.452 +/- 0.261 (raw), -0.398 +/- 0.244 (chat).
+
+**Mechanism for the instability.** Val-based layer selection is unstable --
+`cities` selects anywhere in 16-28 across repeats. Different layers give
+qualitatively different transfer, hence the bimodality.
+
+**Read.** The headline flips. The robust result is the chat answer-cosine
+predictor, not the readout-position story about negation. The negation story now
+rests on sp_en_trans alone, where it is very solid, plus unstable cities cells
+that should not be reported as a finding.
+
+**Next.** Fix the layer rather than selecting it per split, and see how much
+variance that removes. Then the black-box baseline.
