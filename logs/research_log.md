@@ -352,3 +352,76 @@ readout position that made it worthless.
 no answer to read. But raw needs its OWN black-box baseline before it gets any
 credit -- the natural one is mean token log-probability of the statement, since
 true facts tend to be more probable than false ones. That is the next number.
+
+
+---
+
+## 2026-08-25 — session 3f: the fluency baseline for raw
+
+**Question.** Does the raw probe beat the model's own sense of how likely the
+sentence is?
+
+**Prediction (written before running).** *(not recorded)*
+
+**Setup.** `scripts/09_raw_baseline.py`. Teacher-forced mean token log-prob of
+each bare statement, plus sum log-prob and token count as controls. ~3200 forward
+passes. Compared against the raw diff-of-means probe at fixed layer 17, same 20
+splits.
+
+**Result 1: within-dataset, the probe wins.** Mean probe 0.954 vs best black-box
+0.826, delta +0.128.
+
+**Result 2: on TRANSFER -- the quantity the project is actually about -- it does
+not.** Probe transfer 0.827 vs fluency-on-target 0.811. Delta **+0.017**, well
+inside the spread (per-cell sd 0.06-0.19).
+
+    target                probe transfer   fluency|folded    delta
+    cities                    0.935            0.874        +0.062
+    neg_cities                0.875            0.802        +0.072
+    sp_en_trans               0.936            0.999        -0.063
+    neg_sp_en_trans           0.704            0.998        -0.294
+    larger_than               0.788            0.769        +0.018
+    smaller_than              0.959            0.633        +0.326
+    companies                 0.697            0.667        +0.030
+    common_claim              0.724            0.743        -0.019
+    mean                      0.827            0.811        +0.017
+
+**Result 3, and the interesting one: the verdict hinges on ONE BIT.** The table
+above lets fluency know its sign on the target (folding |AUROC-0.5|), which
+requires target labels. Denied that bit -- the honest deployment condition, where
+you have no labels on the distribution you are monitoring -- fluency averages
+0.577 and the transferred probe averages 0.787, a gap of +0.21.
+
+So: the probe beats fluency if and only if fluency is applied blind. A single
+labelled example on the target would supply the missing bit and erase most of
+the advantage.
+
+**Result 4: two datasets are pure fluency and are void as evidence.**
+sp_en_trans mean_lp AUROC = 0.999, neg_sp_en_trans = 0.002. Fluency alone solves
+both perfectly. Nothing measured on that pair says anything about truth
+representations -- which retracts the "sp_en_trans anti-generalisation is rock
+solid" claim from 3c as evidence, though the number itself stands.
+
+**Result 5: the probe is substantially a fluency reader.** Spearman between probe
+score and mean_lp, per dataset: cities +0.553, neg_cities -0.521, sp_en +0.793,
+neg_sp_en -0.802, larger +0.472, smaller -0.298, companies +0.321,
+common_claim +0.580. The sign flips on the negated sets exactly as the
+fluency-truth relationship does.
+
+But it is a PARTIAL explanation, not a complete one: larger_than and
+smaller_than have opposite fluency signs (0.769 vs 0.367) yet the probe transfers
+between them at 0.946, not below chance. Fluency sign-flip predicts inversion
+there and does not get it.
+
+**Also: a dataset defect.** n_tokens alone gives AUROC 0.654 on larger_than and
+0.346 on smaller_than. Statement length leaks the label in that pair. The
++0.326 delta on smaller_than is therefore measured against a length-confounded
+baseline and should not be leaned on.
+
+**Read.** No surviving claim that reading internals beats a trivial baseline
+out of distribution. The honest headline is now a negative one, with a genuinely
+interesting hinge: the advantage is worth about one bit of target label
+information.
+
+**Next.** Partial correlation of probe vs fluency controlling for the label, to
+separate "the probe reads fluency" from "both read truth". Then write up.

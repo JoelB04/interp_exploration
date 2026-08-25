@@ -37,3 +37,10 @@ Format: `YYYY-MM-DD — observation. (where it came up)`
 - 2026-08-25 — In raw, `cities -> neg_cities` never recovers at any layer (best
   ~0.43 at L17, 0.276 at L28), but `sp_en -> neg_sp_en` does (0.854 at L28).
   Same negation, different fate. (s3d)
+- 2026-08-25 — Fluency alone solves sp_en_trans (AUROC 0.999) and neg_sp_en_trans
+  (0.002). Those two datasets carry no information about truth representations. (s3f)
+- 2026-08-25 — Statement LENGTH leaks the label in larger_than (0.654) and
+  smaller_than (0.346). Dataset defect, not a model property. (s3f)
+- 2026-08-25 — larger_than and smaller_than have opposite fluency-truth signs yet
+  the probe transfers between them at 0.946. The fluency sign-flip story predicts
+  inversion here and fails. Unexplained. (s3f)
