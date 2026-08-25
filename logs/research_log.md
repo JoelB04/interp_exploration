@@ -105,15 +105,93 @@ group-aware 60/20/20 split, diff-of-means at all 29 layer indices, both readout
 modes. Layer chosen per train-dataset on its own val split; reported on test.
 Permutation null, 20 replicates, two-sided.
 
-**Result.** *(pending)*
+**Result.** Ran 2026-08-25. n_test = 71-80 per column, SE on a 0.5 AUROC
+~0.056. Layer 0 sits at exactly 0.500 in both modes, diagonal and off-diagonal
+(standard-5 check passes).
 
-**Baseline / null.** Permutation null is implemented and two-sided (anti-
-generalisation is a real outcome, so a one-sided test would miss it). Black-box
-baseline — just asking the model — is NOT yet implemented and is still owed.
+Headline: **readout position determines whether negation breaks the probe.**
 
-**Read.** *(pending)*
+    negation pair              raw (A->B / B->A)    chat (A->B / B->A)
+    cities <-> neg_cities        0.332 / 0.002        0.951 / 0.864
+    sp_en  <-> neg_sp_en         0.001 / 0.019        0.010 / 0.041
+    larger <-> smaller           0.013 / 0.649        0.941 / 0.323
 
-**Next.** *(pending)*
+In raw, all three pairs anti-generalise (5 of 6 cells below chance). In chat the
+anti-generalisation vanishes for cities and mostly for larger/smaller, but
+survives at full strength for sp_en_trans.
+
+Diagonal mean 0.951 (raw) / 0.967 (chat). Off-diagonal mean 0.621 / 0.793.
+Rank-1 explains 69.3% (raw) / 51.5% (chat) of centred logit-AUROC variance, so
+between a third and a half of the matrix is genuine relational structure rather
+than "some datasets are easy". Row spread > column spread in both modes: which
+probe you trained matters more than which target you test on.
+
+**Baseline / null.** Permutation null implemented, two-sided, 20 replicates.
+Black-box baseline STILL OWED and now load-bearing -- see session 3b.
+
+**Read.** The chat probes were suspected of reading the model's about-to-be-
+emitted answer token. Session 3b tests this directly and the answer is "partly".
+Not yet safe to claim chat-mode results show truth is linearly represented.
+
+**Next.** Session 3b, then geometric predictors against this grid.
+
+---
+
+## 2026-08-25 — session 3b: is the chat probe reading the answer token?
+
+**Question.** Under `chat` the readout sits where the model is about to answer
+"true" or "false". Is the probe direction just the answer-token direction?
+
+**Prediction (written before running).** *(not recorded -- ran immediately after
+3. From here on, in before the run.)*
+
+**Setup.** `scripts/04_unembed_check.py`. Logit-lens each probe direction
+(scaled by the final RMSNorm gain), read top/bottom tokens; and cosine against
+W_U[" true"] - W_U[" false"] and two variants. Random-direction floor in d=1536
+is |cos| ~ 0.026.
+
+**Result.** Not the answer direction, but meaningfully tilted toward it.
+
+    mode   mean |cos| with True-False dir   max
+    raw    0.034                            0.062   (at the random floor)
+    chat   0.121                            0.242   (3-5x the floor)
+
+cos = 0.24 means ~6% of the direction's variance is the answer direction. So the
+chat probe is NOT simply the answer readout.
+
+The token readout is more striking than the cosines. Raw directions unembed to
+semantic garbage. Chat directions unembed to clean correctness vocabulary:
+cities -d gives ' Incorrect', ' incorrect', ' wrong', '_invalid'; larger_than -d
+gives ' inconsistent', ' destructive', ' unethical', ' ineffective';
+companies/common_claim +d give 'yes', ' yes', ' checkmark', assertTrue.
+
+**The unplanned finding.** Cosine with the answer direction PREDICTS transfer:
+
+    mode   answer-cos vs mean transfer    diagonal vs mean transfer
+    raw    rho = +0.647  p = 0.083        rho = -0.619  p = 0.102
+    chat   rho = +0.838  p = 0.009        rho = -0.452  p = 0.260
+
+Two things at once. The obvious predictor (in-distribution AUROC) is NEGATIVELY
+correlated with transfer -- the best probes in-distribution are the worst
+travellers. And answer-direction cosine is a fully LEGAL predictor: it needs the
+train probe and the unembedding matrix, no target data of any kind.
+
+Caveats, load-bearing: n = 8 datasets clustered into ~5 families, so p = 0.009
+is optimistic by a wide margin. One seed, one model. Cosines here were read at
+2dp from the printed table and should be recomputed at full precision before any
+claim. And there is a whiff of tautology to guard against -- "probes that found
+the general correctness feature generalise" is close to true by definition; the
+content is that it is MEASURABLE in advance, from weights alone.
+
+**Read.** Chat results are not a black-box measurement in disguise, but they are
+answer-adjacent in a way raw results are not. The mechanistic story that fits:
+raw probes read an upstream content feature that never integrates the negation;
+chat probes read a downstream correctness feature that does. sp_en_trans is the
+exception on both counts (lowest answer-cos, still anti-generalises in chat),
+which is consistent rather than coincidental.
+
+**Next.** Recompute cosines at full precision. Then the black-box baseline --
+it is now the single most important missing number.
 
 ---
 
