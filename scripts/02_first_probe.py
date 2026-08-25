@@ -7,7 +7,8 @@ and does the readout position you discovered in session 1 matter?
 Deliverable: a table of AUROC by layer, for two probe types and two readout
 positions. That is it. Resist scope creep.
 
-Run:  python scripts/02_first_probe.py
+Run from the repo root:  python scripts/02_first_probe.py
+(DATA_DIR is relative to the working directory, so the root matters.)
 """
 
 import os

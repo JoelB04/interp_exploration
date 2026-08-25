@@ -9,7 +9,7 @@ you run it. If one fails, that is the script working correctly -- it means your
 mental model and the library disagree, and you want to find that out now rather
 than in hour 14 of a 20-hour project.
 
-Run:  python 01_smoke_test.py
+Run from the repo root:  python scripts/01_smoke_test.py
 """
 
 import torch

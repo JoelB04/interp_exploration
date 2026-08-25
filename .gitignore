@@ -1,0 +1,22 @@
+# Datasets. Fetched on demand by scripts/02_first_probe.py from
+# saprmarks/geometry_of_truth -- reproducible, so not worth versioning.
+data/
+
+# Run artefacts. Scripts currently save these to the repo root.
+*.npy
+*.pt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Claude Code local settings (machine-specific, not shared)
+.claude/settings.local.json
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
