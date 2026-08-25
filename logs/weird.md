@@ -44,3 +44,8 @@ Format: `YYYY-MM-DD — observation. (where it came up)`
 - 2026-08-25 — larger_than and smaller_than have opposite fluency-truth signs yet
   the probe transfers between them at 0.946. The fluency sign-flip story predicts
   inversion here and fails. Unexplained. (s3f)
+- 2026-08-25 — Probe/fluency correlation on `cities` is +0.553 raw but +0.001
+  holding the label fixed. Almost the whole correlation was the shared cause. (s3g)
+- 2026-08-25 — Negation anti-generalisation splits in two: sp_en is entirely a
+  fluency artifact (0.000 -> 0.38 when residualised), cities and larger/smaller
+  are not (0.013 -> 0.089). Same surface phenomenon, different causes. (s3g)

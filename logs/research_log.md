@@ -425,3 +425,67 @@ information.
 
 **Next.** Partial correlation of probe vs fluency controlling for the label, to
 separate "the probe reads fluency" from "both read truth". Then write up.
+
+
+---
+
+## 2026-08-25 — session 3g: partial correlation and residualised transfer
+
+**Question.** Session 3f said the probe correlates with fluency at rho 0.30-0.80.
+But both correlate with the label. Does anything survive holding the label fixed,
+and does the probe carry truth information fluency does not?
+
+**Setup.** `scripts/10_partial.py`. (a) Spearman(probe, fluency) within each
+label class, pooled. (b) Regress probe score on fluency, keep the residual, take
+AUROC of the residual against the label. The regression uses no labels -- it is
+one score against another -- so fitting on the evaluation set is legitimate.
+
+**Result 1: I overstated "the probe is a fluency reader". It mostly is not.**
+
+    dataset            raw rho    partial rho
+    cities              +0.553      +0.001
+    neg_cities          -0.521      -0.188
+    sp_en_trans         +0.793      +0.175
+    neg_sp_en_trans     -0.802      -0.216
+    larger_than         +0.472      +0.180
+    smaller_than        -0.298      -0.170
+    companies           +0.321      +0.122
+    common_claim        +0.580      +0.436
+
+cities collapses to +0.001. The large raw correlations were almost entirely
+mediated by the shared cause. Only common_claim retains substantial non-truth
+shared structure.
+
+**Result 2: the probe survives fluency removal, but loses about a tenth.**
+Mean off-diagonal transfer 0.832 -> 0.724 after residualising on fluency
+(diagonal 0.954 -> 0.835). 0.724 is well above chance, so there IS truth
+information beyond the free baseline. Per target the drop is very uneven:
+smaller_than 0.959 -> 0.946 (drop 0.013), sp_en_trans 0.941 -> 0.608 (0.333).
+
+**Result 3, and this is the important one: the negation anti-generalisation
+splits into two kinds.** Residualised at the layers where the effect is strong:
+
+    cell                       L12            L14            L16
+    cities -> neg_cities   0.044|0.148    0.013|0.089    0.344|0.414
+    neg_cities -> cities   0.006|0.118    0.002|0.086    0.066|0.212
+    sp_en -> neg_sp_en     0.003|0.437    0.000|0.381    0.069|0.479
+    neg_sp_en -> sp_en     0.003|0.432    0.000|0.393    0.013|0.450
+    larger -> smaller      0.076|0.095    0.030|0.056    0.851|0.853
+    smaller -> larger      0.097|0.196    0.060|0.159    0.678|0.680
+
+- sp_en pair: 0.000 -> 0.381-0.437. Removing fluency returns it to near chance.
+  The anti-generalisation there was a FLUENCY ARTIFACT, entirely.
+- cities pair: 0.013 -> 0.089 at L14. Still catastrophically inverted. NOT
+  explained by fluency.
+- larger/smaller: 0.030 -> 0.056 at L14. Barely moves. NOT explained by fluency.
+
+**Read.** This partially rescues the negation finding, and sharpens it. Two of
+the three pairs anti-generalise for reasons a free black-box baseline cannot
+account for; one does not, and that one (sp_en) was the pair I had been citing
+as the cleanest evidence. The surviving claim is narrower and better supported:
+early-to-mid-layer raw probes invert across negation for cities and ordinal
+comparisons, and fluency does not explain it.
+
+**Next.** Understand WHY cities and ordinal survive but translation does not.
+Candidate: sp_en truth is fully determined by lexical association, so there is no
+truth feature separate from fluency to find in the first place.
