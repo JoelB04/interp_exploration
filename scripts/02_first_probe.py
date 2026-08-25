@@ -26,7 +26,9 @@ from acts import load, get_acts  # noqa: E402
 
 DATA_DIR = "data"
 MAX_EXAMPLES = 400  # you are on CPU. Raise this once you have a GPU.
-BASE = "https://raw.githubusercontent.com/saprmarks/geometry_of_truth/main/datasets"
+# Hyphens, not underscores. The underscore spelling 404s -- this bug meant the
+# script never got past fetch(). See src/data.py, which supersedes this.
+BASE = "https://raw.githubusercontent.com/saprmarks/geometry-of-truth/main/datasets"
 
 
 # ---------------------------------------------------------------------------

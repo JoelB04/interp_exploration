@@ -83,4 +83,52 @@ script; standard 2 says it must be before any conclusion is drawn.)*
 
 **Read.** *(pending)*
 
+**Next.** Superseded by session 3 — the transfer matrix subsumes this, and
+`03_transfer.py` fixes the two bugs that would have made session 2's numbers
+wrong anyway (404ing dataset URL, pair-straddling random split).
+
+---
+
+## 2026-08-25 — session 3: the transfer matrix
+
+**Question.** Train a truth probe on each of 8 datasets, test on all 8. Which
+probes transfer, which collapse to chance, and which anti-generalise?
+
+**Prediction (written before running).** *(FILL THIS IN BEFORE THE FIRST RUN.
+Specifically: (a) which cells go below 0.5, (b) whether cities→neg_cities is
+symmetric with neg_cities→cities, (c) how far the diagonal drops now that the
+split is group-aware, (d) whether `raw` or `chat` transfers better, and whether
+that is the same mode with the higher diagonal.)*
+
+**Setup.** `scripts/03_transfer.py`. 8 geometry-of-truth datasets, MAX_N=400,
+group-aware 60/20/20 split, diff-of-means at all 29 layer indices, both readout
+modes. Layer chosen per train-dataset on its own val split; reported on test.
+Permutation null, 20 replicates, two-sided.
+
+**Result.** *(pending)*
+
+**Baseline / null.** Permutation null is implemented and two-sided (anti-
+generalisation is a real outcome, so a one-sided test would miss it). Black-box
+baseline — just asking the model — is NOT yet implemented and is still owed.
+
+**Read.** *(pending)*
+
 **Next.** *(pending)*
+
+---
+
+### Pipeline validation, 2026-08-25 (not a result)
+
+Before any real run, `03_transfer.py` was exercised on synthetic activations with
+a known planted structure: two orthogonal "truth" directions defining two dataset
+families, and a deliberately sign-flipped direction for `neg_cities` and
+`neg_sp_en_trans`. The script recovered all of it — within-family transfer ~0.97,
+cross-family ~0.5, and the planted anti-generalisation at 0.007 and 0.029, each
+correctly flagged by the two-sided null.
+
+This tests the plumbing (splitting, layer selection, null, grid assembly), not
+the science. It says the script does what it claims. It says nothing about Qwen.
+
+One caveat it exposed: 64 cells at a two-sided 95% threshold means roughly 3
+false stars expected by chance, and the synthetic run showed a few. Do not read
+individual starred cells as findings without a multiple-comparisons correction.

@@ -62,15 +62,21 @@ C:\Python313\python.exe scripts\02_first_probe.py
 
 ```
 src/acts.py               load(), format_prompts(), get_acts()
+src/data.py               fetch/prepare + GROUP-AWARE split (pairs never straddle)
+src/cache.py              disk cache for activations; model loads lazily
+src/predictors.py         transfer predictors — STUBS, Joel writes these
 scripts/01_smoke_test.py  plumbing verification — passing
-scripts/02_first_probe.py diff-of-means truth probe, AUROC by layer — in progress
-data/                     gitignored; geometry_of_truth CSVs, fetched on demand
+scripts/02_first_probe.py first probe, AUROC by layer — superseded by 03
+scripts/03_transfer.py    the transfer matrix — the project substrate
+data/                     gitignored; geometry-of-truth CSVs, fetched on demand
+cache/                    gitignored; cached activation tensors
+results/                  gitignored; transfer grids
 logs/research_log.md      timestamped, prediction recorded before each run
 logs/weird.md             one-line surprises, not chased during exploration
 ```
 
-Scripts write run artefacts (`results_session2.npy`) to the repo root, not to
-`data/`. Gitignored, but worth tidying if it starts to matter.
+Compute activations once, then iterate on analysis. `cache.py` keys on
+(model, dataset, mode, max_n, seed) and only constructs the model on a miss.
 
 ## Established facts
 
@@ -89,6 +95,18 @@ Verified on this setup — do not re-derive.
   never a hardcoded default.
 - Naive cosine similarity between activations is useless here: a few massive-
   activation dimensions push every pair to ~0.99. Subtract means.
+- The geometry-of-truth repo is `saprmarks/geometry-of-truth` — **hyphens**. The
+  underscore spelling 404s. This bug sat in `02_first_probe.py`, so that script
+  never got past its fetch step.
+- Dataset pair structure, measured: `cities`/`neg_cities` and
+  `larger_than`/`smaller_than` are fully paired (every entity carries both
+  labels). `sp_en_trans` is not — 344 distinct Spanish words across 354 rows, so
+  group-aware splitting is nearly a no-op there. `companies_true_false` and
+  `common_claim_true_false` have no pair structure at all.
+- AUROC is invariant to centering. Subtracting any constant vector shifts every
+  score by the same amount and cannot change a ranking — so train-mean vs
+  test-mean centering is moot for probe AUROC. It is *not* moot for the
+  geometric predictors, where distances are not rank-only.
 
 ## Methodological standards for this repo
 
