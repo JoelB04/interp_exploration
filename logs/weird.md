@@ -31,3 +31,9 @@ Format: `YYYY-MM-DD — observation. (where it came up)`
 - 2026-08-25 — Some transfer cells are effectively BIMODAL across splits:
   chat `cities → neg_cities` = 0.587 +/- 0.44, i.e. sometimes ~0.95 and
   sometimes ~0.05. A single split reads as a clean finding either way. (s3c)
+- 2026-08-25 — Sharp transition in chat between L17 and L20: every negation pair
+  goes from ~0.05 (anti-generalising) to ~0.97 (near-perfect transfer). Mean
+  off-diagonal transfer jumps 0.677 -> 0.946 between L16 and L18. (s3d)
+- 2026-08-25 — In raw, `cities -> neg_cities` never recovers at any layer (best
+  ~0.43 at L17, 0.276 at L28), but `sp_en -> neg_sp_en` does (0.854 at L28).
+  Same negation, different fate. (s3d)

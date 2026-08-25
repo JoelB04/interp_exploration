@@ -264,3 +264,91 @@ that should not be reported as a finding.
 
 **Next.** Fix the layer rather than selecting it per split, and see how much
 variance that removes. Then the black-box baseline.
+
+
+---
+
+## 2026-08-25 — session 3d: fix the layer
+
+**Question.** How much of the session-3c instability was val-based layer selection?
+
+**Prediction (written before running).** *(not recorded)*
+
+**Setup.** `scripts/07_fixed_layer.py`. Full transfer matrix at every layer,
+layer held FIXED across all eight probes, 20 resampled splits at each. Cache
+only, no forward passes.
+
+**Result. Essentially all of it.**
+
+    chat, mean sd over off-diagonal cells
+      selected-layer (3c)   up to 0.46 on individual cells
+      fixed layer 20        0.015 mean, 0.031 max
+
+And with the layer fixed, a sharp TRANSITION appears in chat:
+
+    chat negation cells        L16          L17          L20          L28
+      cities->neg_cities    0.071+-0.02  0.106+-0.03  0.956+-0.02  0.939+-0.03
+      neg_cities->cities    0.015+-0.01  0.013+-0.01  0.975+-0.02  0.980+-0.01
+      sp_en->neg_sp_en      0.105+-0.04  0.358+-0.06  0.964+-0.02  0.959+-0.02
+      neg_sp_en->sp_en      0.056+-0.03  0.196+-0.06  1.000+-0.00  1.000+-0.00
+      larger->smaller       0.458+-0.05  0.906+-0.03  0.973+-0.02  0.971+-0.02
+      smaller->larger       0.415+-0.07  0.917+-0.03  0.991+-0.01  0.990+-0.01
+
+Before ~L17 every negation pair anti-generalises. After ~L20 every one transfers
+near-perfectly. Mean off-diagonal transfer jumps 0.677 (L16) -> 0.946 (L18).
+
+This also retires the "sp_en_trans is the exception" claim from 3b. It was not an
+exception; its selected layer was 14, on the wrong side of the transition.
+
+**Read.** All of the negation anti-generalisation is a pre-transition-layer
+phenomenon. Session 3 was reading different sides of a sharp transition for
+different datasets and calling the mixture a readout-mode effect.
+
+**Next.** Black-box baseline before interpreting the transition.
+
+---
+
+## 2026-08-25 — session 3e: the black-box baseline
+
+**Question.** Does the layer-20 chat probe beat just asking the model?
+
+**Prediction (written before running).** Expected the probe to win by a little.
+
+**Setup.** `scripts/08_blackbox.py`. hs[-1] is post-norm, so W_U @ hs[-1] is the
+logit vector -- the cached chat activations already contain the answer
+distribution and this costs zero forward passes. Score = logit(True) -
+logit(False) at the readout token, best of five token pairs per dataset. Same 20
+test splits as the probe, for like-for-like n.
+
+Verified the model is genuinely answering: top predictions at the readout token
+are 'False' for a false city statement and 'True' for true ones.
+
+**Result. It does not. Mean delta +0.006.**
+
+    dataset                black box    probe L20    delta
+    cities                 0.982        0.984        +0.002
+    neg_cities             0.959        0.973        +0.014
+    sp_en_trans            1.000        1.000        +0.000
+    neg_sp_en_trans        0.956        0.988        +0.032
+    larger_than            0.991        0.993        +0.002
+    smaller_than           0.978        0.983        +0.005
+    companies_true_false   0.941        0.943        +0.002
+    common_claim_true_false 0.849       0.840        -0.009
+    mean                   0.957        0.963        +0.006
+
+Every delta is inside the split-to-split sd (0.01-0.03).
+
+**Read. The chat results are a black-box measurement in disguise.** A layer-20
+chat probe is reading the model's answer token, and reading internals buys
+nothing over prompting. By extension the L17->L20 transition is most likely the
+model COMPUTING ITS ANSWER, not "negation being integrated into a truth
+representation" -- the deflationary reading is the one the baseline supports.
+
+The chat half of this project is therefore closed as an interpretability result.
+It stands as a cautionary result: probe AUROC of 0.96, stable to +-0.015, on a
+readout position that made it worthless.
+
+**Next.** Move to raw, where the model was never asked a question and there is
+no answer to read. But raw needs its OWN black-box baseline before it gets any
+credit -- the natural one is mean token log-probability of the statement, since
+true facts tend to be more probable than false ones. That is the next number.
