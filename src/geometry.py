@@ -1,26 +1,22 @@
-"""Candidate predictors of transfer.
+"""Manifold geometry.
 
-The mechanics here are now written. The *choices* are still yours, and they are
-what you will have to defend: which radius convention, how many samples per
-class, whether the massive-activation dimensions are included, and which of
-these you are willing to call a predictor at all.
+Chung/Lee/Sompolinsky-style statistics for concept manifolds in the residual
+stream. Written during the session-3 transfer project, retained because the
+geometry is the core of the hierarchy project -- the transfer-specific
+predictors that used to live alongside these were removed on 2026-08-27 and are
+in git history at 73f06af (src/predictors.py).
 
-The contract. A legal predictor sees the TRAIN side in full -- activations,
-labels, fitted direction -- and may see the target side's ACTIVATIONS ONLY. The
-moment it touches target labels it stops being a prediction and becomes a
-post-hoc summary. Two functions below deliberately break this rule and are
-labelled as references, not predictors. Keep them out of the predictor table.
+Two rules that apply to everything here:
 
-Grouped by legality:
+  1. Run `equalize_class_n` before comparing ANY spectral quantity across
+     manifolds. D_M is capped at M-1 and biased well below it, so unequal
+     sample sizes are measured as differences in geometry. See the warning on
+     manifold_dimension.
 
-  legal, train-side only   split_half_stability, manifold_radius,
-                           manifold_dimension, centre_separation
-  legal, uses target acts  target_variance_along_direction
-  reference only           direction_cosine, centre_correlation_matrix
-  not yet reachable        j_space_fraction
+  2. Radius convention is fixed and must not change mid-project:
+     R_M = sqrt(sum lam^2 / sum lam) / ||c||. Written out on manifold_radius.
 
-Before comparing any spectral quantity across datasets, run everything through
-`equalize_class_n`. See the warning on `manifold_dimension` for why.
+Notation, project-wide: M = points per manifold, n = ambient dimension.
 """
 
 import numpy as np
@@ -78,45 +74,6 @@ def category_spectrum(acts: np.ndarray, labels: np.ndarray, label: int):
 
 # ---------------------------------------------------------------------------
 # Legal predictors -- train side only
-# ---------------------------------------------------------------------------
-def split_half_stability(acts: np.ndarray, labels: np.ndarray,
-                         groups: np.ndarray = None, n_repeats: int = 20,
-                         seed: int = 0) -> float:
-    """Mean cosine between diff-of-means directions fitted on disjoint halves.
-
-    The cheapest sanity predictor: if a direction does not agree with itself
-    across a random split of its own training data, it will certainly not agree
-    with a different dataset.
-
-    Understand its limit. This measures ESTIMATION NOISE, not BIAS. A confound
-    like "correct city-country pairing" is perfectly stable across halves --
-    both halves find it enthusiastically -- so high stability is necessary for
-    transfer and nowhere near sufficient. Expect it to be a floor, not a ranker.
-
-    Pass `groups` to halve at the group level, so a true/false pair never lands
-    with one half seeing the statement and the other seeing its negation.
-    """
-    rng = np.random.default_rng(seed)
-    out = []
-
-    for _ in range(n_repeats):
-        if groups is None:
-            perm = rng.permutation(len(labels))
-            h1, h2 = perm[: len(perm) // 2], perm[len(perm) // 2:]
-        else:
-            uniq = rng.permutation(np.unique(groups))
-            g1 = set(uniq[: len(uniq) // 2])
-            in1 = np.array([g in g1 for g in groups])
-            h1, h2 = np.where(in1)[0], np.where(~in1)[0]
-
-        if min(len(np.unique(labels[h1])), len(np.unique(labels[h2]))) < 2:
-            continue
-        out.append(float(diff_of_means(acts[h1], labels[h1])
-                         @ diff_of_means(acts[h2], labels[h2])))
-
-    return float(np.mean(out)) if out else np.nan
-
-
 def manifold_radius(acts: np.ndarray, labels: np.ndarray, label: int) -> float:
     """Effective radius of one class manifold at one layer.
 
@@ -189,47 +146,7 @@ def centre_separation(acts: np.ndarray, labels: np.ndarray) -> float:
 # ---------------------------------------------------------------------------
 # Legal predictor -- uses target ACTIVATIONS, never target labels
 # ---------------------------------------------------------------------------
-def target_variance_along_direction(target_acts: np.ndarray,
-                                    direction: np.ndarray) -> float:
-    """Variance of the target dataset along the train probe direction,
-    as a multiple of the average per-dimension variance.
-
-    The most mechanically obvious predictor on the list, and possibly the
-    strongest. If the target data barely varies along your direction, the probe
-    physically cannot separate anything there -- every example scores about the
-    same and AUROC collapses toward 0.5 regardless of how good the direction is
-    in principle.
-
-    Scale-free by construction: 1.0 means the direction is as variable as a
-    typical dimension, >> 1 means it is a high-variance direction in the target.
-
-    Needs only the target's activations. That makes it legal, and it is the one
-    predictor here you could actually deploy -- you always have unlabelled data
-    from the distribution you are about to monitor.
-    """
-    u = direction / (np.linalg.norm(direction) + 1e-12)
-    proj_var = float(np.asarray(target_acts @ u).var(ddof=1))
-    mean_dim_var = float(target_acts.var(axis=0, ddof=1).mean())
-    return proj_var / (mean_dim_var + 1e-12)
-
-
-# ---------------------------------------------------------------------------
 # References -- these touch target labels. NOT predictors.
-# ---------------------------------------------------------------------------
-def direction_cosine(d_train: np.ndarray, d_test: np.ndarray) -> float:
-    """Cosine between the two datasets' diff-of-means directions at one layer.
-
-    Uses target labels to form d_test, so it is illegal as a predictor. It is
-    here as a ceiling-ish reference: the most direct measure of "do these two
-    datasets want the same direction". If the legal predictors find nothing
-    while this correlates strongly, the transfer signal is real and your
-    train-side proxies simply are not capturing it -- which is a result.
-    """
-    a = d_train / (np.linalg.norm(d_train) + 1e-12)
-    b = d_test / (np.linalg.norm(d_test) + 1e-12)
-    return float(a @ b)
-
-
 def centre_correlation_matrix(centroids: np.ndarray) -> np.ndarray:
     """Pairwise cosine between manifold centroids, after removing the grand mean.
 
@@ -286,53 +203,4 @@ def centre_cosine_degeneracy_check(acts: np.ndarray, labels: np.ndarray) -> dict
 # ---------------------------------------------------------------------------
 # Not yet reachable
 # ---------------------------------------------------------------------------
-def j_space_fraction(direction: np.ndarray, lens_basis: np.ndarray) -> float:
-    """Fraction of a probe direction's squared norm lying in J-space.
-
-    Needs a pre-fitted Jacobian lens. Timeboxed day-6 upgrade, not a dependency
-    -- the project stands on the geometric predictors alone.
-
-    Sanity check before believing anything: the Anthropic result is that concept
-    probes hold only ~6-7% of their variance in J-space. If you compute 90% or
-    0.01%, you have a basis convention wrong; that is a bug, not a finding.
-    """
-    raise NotImplementedError
-
-
-# ---------------------------------------------------------------------------
 # Evaluation harness
-# ---------------------------------------------------------------------------
-def rank_correlation(predictor_values: np.ndarray,
-                     transfer_auroc: np.ndarray) -> dict:
-    """Spearman rho between a predictor and measured transfer, off-diagonal only.
-
-    Both arrays are (n_ds, n_ds). The diagonal is excluded: it is not transfer,
-    and leaving it in would manufacture a correlation out of the fact that
-    within-dataset AUROC is high and self-similarity is 1.
-
-    READ THE n BEFORE THE p. The 56 off-diagonal cells are not 56 independent
-    observations. The datasets cluster into roughly five families
-    ({cities, neg_cities}, {sp_en_trans, neg_sp_en_trans},
-    {larger_than, smaller_than}, {companies}, {common_claim}), and
-    larger_than/smaller_than share group keys by construction. Effective n is
-    closer to 20, and the cells are not independent draws in any case, so the
-    reported p is optimistic by a wide margin.
-
-    Consequence for the write-up: do not stage this as a horse race between
-    four correlated predictors. You do not have the power to win it. Report the
-    designed contrast -- the negation pairs, where competing accounts predict
-    opposite signs -- as the primary result, and treat this sweep as
-    exploratory.
-    """
-    from scipy.stats import spearmanr
-
-    n = predictor_values.shape[0]
-    off = ~np.eye(n, dtype=bool)
-    x, y = predictor_values[off], transfer_auroc[off]
-    ok = np.isfinite(x) & np.isfinite(y)
-
-    if ok.sum() < 4:
-        return dict(rho=np.nan, p=np.nan, n=int(ok.sum()))
-
-    rho, p = spearmanr(x[ok], y[ok])
-    return dict(rho=float(rho), p=float(p), n=int(ok.sum()))

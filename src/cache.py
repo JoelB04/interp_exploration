@@ -1,26 +1,29 @@
 """Disk cache for activations.
 
-This is the highest-leverage file in the repo. A full sweep over 8 datasets in 2
-readout modes is 30-60 min of CPU forward passes; loading the same thing from
-disk is a couple of seconds. Compute once, then iterate on the analysis as many
-times as you like.
+This is the highest-leverage file in the repo. A full sweep of forward passes is
+tens of minutes of CPU; loading the same thing from disk is a couple of seconds.
+Compute once, then iterate on the analysis as many times as you like.
 
-The model is loaded LAZILY -- if every dataset you asked for is already cached,
-no model is ever constructed and the script starts instantly.
+Dataset-agnostic by design. The caller supplies a `loader` callable that returns
+the prompts and whatever metadata belongs with them; the cache never knows which
+dataset it is holding. This is a change from the session-3 version, which
+imported a geometry-of-truth loader directly and could only cache that.
+
+The model is loaded LAZILY, and the loader is only CALLED on a miss -- if
+everything you asked for is cached, no model is constructed and no dataset is
+fetched, so a re-run starts instantly.
 """
 
 import hashlib
 import os
 
-import numpy as np
 import torch
 
 from acts import MODEL_NAME, get_acts, load
-from data import prepare
 
 CACHE_DIR = "cache"
 
-_MODEL = None  # (model, tok, device), populated on first cache miss
+_MODEL = None  # (model, tok, device), populated on the first cache miss
 
 
 def _handle():
@@ -31,54 +34,58 @@ def _handle():
     return _MODEL
 
 
-def _key(dataset: str, mode: str, max_n: int, seed: int) -> str:
+def _key(tag: str, mode: str, M: int, seed: int) -> str:
     """Cache filename. Includes the model name -- switching models must not
     silently reuse another model's activations."""
-    raw = f"{MODEL_NAME}|{dataset}|{mode}|{max_n}|{seed}"
+    raw = f"{MODEL_NAME}|{tag}|{mode}|{M}|{seed}"
     digest = hashlib.sha256(raw.encode()).hexdigest()[:8]
-    return f"{dataset}_{mode}_n{max_n}_s{seed}_{digest}.pt"
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in tag)[:40]
+    return f"{safe}_{mode}_M{M}_s{seed}_{digest}.pt"
 
 
-def cached_acts(dataset: str, mode: str, max_n: int = 400, seed: int = 0):
-    """Return (acts, labels, groups, statements) for one dataset/mode.
+def cached_acts(tag: str, mode: str, loader, M: int, seed: int = 0):
+    """Last-token activations at every layer, cached to disk.
 
-    acts is float32 (n_examples, n_layers + 1, d_model), on CPU.
-    Remember index 0 is the embedding, index i is the output of block i-1.
+    tag     cache key. Any string that uniquely names this slice of data.
+    mode    'raw' or 'chat' -- readout position, see acts.format_prompts.
+    loader  zero-argument callable returning (statements, meta_dict).
+            Called ONLY on a cache miss. meta_dict is stored alongside the
+            activations and returned unchanged; put labels, parent/child ids,
+            or anything else you need there.
+    M       points in this slice. Part of the cache key, so changing it is a
+            miss rather than a silent reuse.
+
+    Returns (acts, meta) where acts is float32 (M, n_layers + 1, n) on CPU.
+    Index 0 of the middle axis is the embedding; index i is the output of
+    block i-1.
     """
     os.makedirs(CACHE_DIR, exist_ok=True)
-    path = os.path.join(CACHE_DIR, _key(dataset, mode, max_n, seed))
+    path = os.path.join(CACHE_DIR, _key(tag, mode, M, seed))
 
     if os.path.exists(path):
         blob = torch.load(path, weights_only=False)
-        return blob["acts"], blob["labels"], blob["groups"], blob["statements"]
+        return blob["acts"], blob["meta"]
 
-    statements, labels, groups = prepare(dataset, max_n=max_n, seed=seed)
+    statements, meta = loader()
+    if len(statements) != M:
+        raise ValueError(
+            f"{tag}: loader returned {len(statements)} statements, expected M={M}. "
+            "Equal M across manifolds is a hard requirement -- see standard 2."
+        )
+
     model, tok, device = _handle()
-
-    print(f"  computing {dataset}/{mode}  n={len(statements)}")
+    print(f"  computing {tag}/{mode}  M={len(statements)}")
     acts = get_acts(statements, model, tok, device, mode=mode)
 
     torch.save(
-        {
-            "acts": acts,
-            "labels": labels,
-            "groups": groups,
-            "statements": statements,
-            "model": MODEL_NAME,
-            "dataset": dataset,
-            "mode": mode,
-            "seed": seed,
-        },
+        {"acts": acts, "meta": meta, "statements": statements,
+         "model": MODEL_NAME, "tag": tag, "mode": mode, "M": M, "seed": seed},
         path,
     )
-    return acts, labels, groups, statements
+    return acts, meta
 
 
-def cache_status(datasets, modes, max_n: int = 400, seed: int = 0):
+def cache_status(tags, modes, M: int, seed: int = 0):
     """What is already on disk. Cheap -- call before a long sweep."""
-    rows = []
-    for d in datasets:
-        for m in modes:
-            path = os.path.join(CACHE_DIR, _key(d, m, max_n, seed))
-            rows.append((d, m, os.path.exists(path)))
-    return rows
+    return [(t, m, os.path.exists(os.path.join(CACHE_DIR, _key(t, m, M, seed))))
+            for t in tags for m in modes]

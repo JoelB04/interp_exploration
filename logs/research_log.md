@@ -1,5 +1,20 @@
 # Research log
 
+> **Session 3 code was removed from the working tree on 2026-08-27** when the
+> project changed direction. Nothing is lost: every script that produced the
+> numbers below lives in git at commit `73f06af` and its ancestors. To read or
+> restore any of it:
+>
+> ```
+> git show 73f06af:scripts/03_transfer.py
+> git checkout 73f06af -- scripts/03_transfer.py
+> ```
+>
+> Files: 02_first_probe, 03_transfer, 04_unembed_check, 05_plots, 06_stability,
+> 07_fixed_layer, 08_blackbox, 09_raw_baseline, 10_partial, src/data.py.
+> The results, retractions and dead ends they produced are all recorded below
+> and stay here permanently.
+
 Timestamped, append-only. **Write the prediction before running anything.** A
 prediction recorded after seeing the output is worth nothing, and the habit is
 the point — calibration is the skill being built here.
