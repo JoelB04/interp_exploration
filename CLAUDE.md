@@ -117,10 +117,13 @@ Verified on this setup — do not re-derive.
   parameter (`raw` vs `chat`) — readout position is a live experimental
   variable, never a hardcoded default.
 - Naive cosine similarity between activations is useless here: a few massive-
-  activation dimensions push every pair to ~0.99. Subtract means. Whether those
-  dimensions also dominate the covariance SPECTRUM is a separate and open
-  question — a large constant offset moves the centroid but contributes nothing
-  to the covariance.
+  activation dimensions push every pair to ~0.99. Subtract means.
+- **RESOLVED 2026-08-28**: those dimensions do NOT dominate the covariance
+  spectrum. At layer 14 the top-5 highest-variance dims carry 7–10% of total
+  variance under `raw` and only ~3% under `chat`. Dropping them *raises* D
+  (23.0 → 31.7 on Toxic Content raw), so they mildly concentrate the spectrum
+  but are nowhere near dominating it. A large constant offset moves the
+  centroid without contributing to covariance, and that is what was happening.
 - Qwen's vocab contains CJK tokens and the Windows console is cp1252. Any script
   that prints decoded tokens needs
   `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`.
@@ -142,6 +145,26 @@ Verified on this setup — do not re-derive.
   parent with one child.
 - That design yields only **12 within-parent pairs** against 66 between-parent,
   and 6 of the 12 come from Malicious Use alone. Nesting claims rest on those 12.
+
+**Real manifold geometry** (measured 2026-08-28, M=640, all 13 tasks, all layers)
+
+- The within-manifold spectrum IS a power law. Fit r² is 0.95–0.999 at every
+  layer in both modes, so the toy model's `lambda_i ~ i^-alpha` family is the
+  right one and the synthetic null is well-founded.
+- Fitted alpha sits at 1.15–1.7 (raw) and 1.2–1.65 (chat).
+- **D is small: 10–25, not hundreds.** Far below the M-1 = 639 rank cap, so the
+  measurement is nowhere near censored and M=640 is comfortably adequate —
+  check 1 showed only a 6% undershoot at D=38, and the bias is smaller still
+  at D≈20.
+- `raw` manifolds are consistently higher-dimensional than `chat` (peak D ≈ 22
+  vs ≈ 13–18). Consistent with chat forcing everything through one
+  attention-transported token.
+- `raw` D rises from 3 at the embedding to ~22 by layer 14, holds, then falls
+  to 13 at layer 28. `chat` is flatter, ~10, rising to 18 at the last layer.
+- `chat` layer 0 is EXACTLY degenerate — one distinct point, all eigenvalues
+  zero, D undefined. Free exact null: any structure reported there is a bug.
+- `raw` layer 0 fits badly (r² 0.76, alpha 48) because the last token of a bare
+  prompt takes only ~93 distinct values across 800 examples. Exclude it.
 
 ## Methodological standards for this repo
 

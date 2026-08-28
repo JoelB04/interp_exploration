@@ -91,7 +91,17 @@ def spec_of(A_layer: np.ndarray) -> np.ndarray:
 
 
 def participation_ratio(lam):
+    """NaN for a degenerate manifold rather than 0/0.
+
+    This is not defensive padding -- chat layer 0 is EXACTLY degenerate. Every
+    example shares the generation-prompt token, so all 640 points sit on one
+    another and every eigenvalue is zero. D is genuinely undefined there, and
+    NaN is the honest answer. It also means chat layer 0 is a free exact null:
+    any non-NaN structure reported there is a bug.
+    """
     lam = lam[lam > 0]
+    if lam.size == 0 or lam.sum() <= 0:
+        return float("nan")
     return float(lam.sum() ** 2 / (lam ** 2).sum())
 
 
@@ -105,6 +115,8 @@ def fit_alpha(lam: np.ndarray) -> tuple:
     """
     i = np.arange(1, len(lam) + 1)
     m = (i >= FIT_LO) & (i <= FIT_HI) & (lam > 0)
+    if m.sum() < 5:                      # degenerate, or fit range too narrow
+        return float("nan"), float("nan")
     x, y = np.log(i[m]), np.log(lam[m])
     slope, intercept = np.polyfit(x, y, 1)
     resid = y - (slope * x + intercept)
@@ -143,8 +155,9 @@ def main():
     for l in range(0, n_layers, 2):
         row = f"{l:>6} "
         for m in MODES:
-            row += (f"{D[m][:,l].mean():>9.1f} {AL[m][:,l].mean():>7.3f} "
-                    f"{R2[m][:,l].mean():>6.3f}")
+            row += (f"{np.nanmean(D[m][:,l]):>9.1f} "
+                    f"{np.nanmean(AL[m][:,l]):>7.3f} "
+                    f"{np.nanmean(R2[m][:,l]):>6.3f}")
         print(row)
 
     # ---- 2. massive-activation ablation, mid layer
@@ -181,7 +194,7 @@ def main():
 
     ax = axes[1]
     for mode, c in zip(MODES, ["#2471a3", "#c0392b"]):
-        mu, sd = D[mode].mean(0), D[mode].std(0)
+        mu, sd = np.nanmean(D[mode], 0), np.nanstd(D[mode], 0)
         ax.plot(mu, color=c, lw=2, label=mode)
         ax.fill_between(range(n_layers), mu - sd, mu + sd, color=c, alpha=.18)
     ax.axhline(M_EQUAL - 1, color="k", ls=":", lw=1.2, label="rank cap M-1")
@@ -191,8 +204,8 @@ def main():
 
     ax = axes[2]
     for mode, c in zip(MODES, ["#2471a3", "#c0392b"]):
-        ax.plot(AL[mode].mean(0), color=c, lw=2, label=f"{mode}: alpha")
-        ax.plot(R2[mode].mean(0), color=c, lw=1.2, ls="--",
+        ax.plot(np.nanmean(AL[mode], 0), color=c, lw=2, label=f"{mode}: alpha")
+        ax.plot(np.nanmean(R2[mode], 0), color=c, lw=1.2, ls="--",
                 label=f"{mode}: fit r2")
     ax.axhline(1.0, color="0.4", ls=":", lw=1)
     ax.set_xlabel("layer"); ax.set_ylabel("alpha  /  r2")
