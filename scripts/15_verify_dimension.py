@@ -145,7 +145,10 @@ def main():
 
     print("\nusable range -- largest analytic D recovered within 10%:")
     for M in M_VALUES:
-        ok = [d for d, e in zip(Dt, res[M]["D"]) if e / d >= 0.9]
+        # Two-sided. The earlier one-sided test (e/d >= 0.9) would have
+        # counted a 30% OVERestimate as acceptable, and M=160 does overestimate
+        # at low D -- so the bug was live, not hypothetical.
+        ok = [d for d, e in zip(Dt, res[M]["D"]) if abs(e / d - 1) <= 0.1]
         print(f"  M={M:>6}  D <= {max(ok):.0f}" if ok else
               f"  M={M:>6}  none of the tested D values")
 
