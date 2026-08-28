@@ -14,7 +14,7 @@ They are separate because the two sweeps vary them independently:
     calibration  vary the SPEC (M), pin the geometry
     power        pin the SPEC at the real design, vary the GEOMETRY
 
-Notation, fixed for the whole project:
+Notation:
     M   points per child manifold  (samples)
     n   ambient dimension          (neurons)  -- 1536 for Qwen2.5-1.5B
     P   number of parents
@@ -22,16 +22,13 @@ Notation, fixed for the whole project:
 """
 
 from dataclasses import dataclass, field
-
 import numpy as np
-
 
 @dataclass
 class HierarchySpec:
-    """What tree, and how big. No geometry here."""
 
-    branching: list       # children per parent, e.g. [4, 3, 2, 2, 2]
-    M: int                # points per child manifold -- EQUAL by construction
+    branching: list       # children per parent
+    M: int                # points per child manifold, equal by construction
     n: int = 1536         # ambient dimension
 
     @property
@@ -49,7 +46,7 @@ class HierarchySpec:
     def pair_counts(self) -> tuple:
         """(within-parent pairs, between-parent pairs) among child manifolds.
 
-        This is the actual n of your nesting test, and it is much smaller than
+        This is the actual n of the nesting test, and it is much smaller than
         the number of manifolds. Print it before trusting any nesting claim.
         """
         c = self.branching
@@ -72,7 +69,7 @@ class HierarchySpec:
 class GeometryParams:
     """What shape. No tree structure here.
 
-    sigma_ratio is THE signal knob and the thing your power sweep varies:
+    sigma_ratio is the signal knob and the thing that power sweep varies:
 
         0.0  children sit exactly on their parent  -> perfect nesting
         1.0  children scattered as widely as parents are -> effectively flat
@@ -90,23 +87,12 @@ class GeometryParams:
     shared_within: bool = True    # same within-covariance for every child
 
 
-# ---------------------------------------------------------------------------
-# YOURS. The dataclasses above are containers; all the work happens here.
-# ---------------------------------------------------------------------------
 def generate(spec: HierarchySpec, params: GeometryParams, rng) -> tuple:
     """Sample a hierarchical point cloud.
-
     Returns
         X         (spec.total_points, spec.n) float array
         y_parent  (spec.total_points,) int, which parent each point belongs to
         y_child   (spec.total_points,) int, which child manifold
-
-    The generative story to implement:
-
-        parent centres   c_p   ~  N(0, sigma_p^2 * I)        sigma_p := 1
-        child centres    c_pk  ~  N(c_p, sigma_ratio^2 * I)
-        points           x     ~  N(c_pk, Sigma_w)
-
     Sigma_w carries the within-manifold shape. A power-law spectrum
     lambda_i proportional to i^-alpha gives a tunable participation ratio;
     alpha near 0 is isotropic (D_M -> n), large alpha is low-dimensional.
@@ -130,18 +116,47 @@ def generate(spec: HierarchySpec, params: GeometryParams, rng) -> tuple:
     Keep it a pure function of (spec, params, rng) so a sweep is reproducible
     from the seed alone.
     """
-    raise NotImplementedError
+
+    X, y_parent, y_child = [], [], []
+
+    if params.parent_subspace == 0:
+        parent_centroids = rng.normal(size = (spec.n_parents, spec.n))
+    else:
+        k = params.parent_subspace
+        B,_ = np.linalg.qr(rng.normal(size = (spec.n, k))) #(n,k) shared subspace
+        parent_centroids = rng.normal(size = (spec.n_parents, k)) @ B.T
+
+    child_id = 0
+    U_shared, _ = np.linalg.qr(rng.normal(size=(spec.n, spec.n))) # Universal eigenbasis, assumes parents are drawn isotropically and share no common subspace
+    lam = spectrum(spec.n, params.alpha, params.within_scale)
+
+    for p in range(spec.n_parents):
+        for k in range(spec.branching[p]):
+
+            if params.shared_within:
+                U = U_shared
+            else:
+                U, _= np.linalg.qr(rng.normal(size = (spec.n, spec.n)))
+
+            centroid = rng.normal(loc = parent_centroids[p], scale = params.sigma_ratio) #(n,)
+            points = rng.normal(size = (spec.M, spec.n))*np.sqrt(lam) @ U.T # (M,n)
+
+            X.append(points + centroid)
+            y_parent.append(np.full(spec.M, p))
+            y_child.append(np.full(spec.M, child_id))
+            child_id+=1
+
+    X = np.concatenate(X)
+    y_parent = np.concatenate(y_parent)
+    y_child = np.concatenate(y_child)
+
+    return X, y_parent, y_child
+
 
 
 def spectrum(n: int, alpha: float, scale: float = 1.0) -> np.ndarray:
     """Power-law eigenvalue spectrum, normalised to total variance scale^2.
-
-    Provided because it is fiddly rather than interesting. lambda_i ~ i^-alpha
-    for i = 1..n, then rescaled so lambda.sum() == scale^2.
-
-    Sanity check worth running once: the participation ratio of this spectrum,
-    (sum lam)^2 / sum lam^2, should fall as alpha rises, and should equal n
-    exactly at alpha = 0.
+    lambda_i ~ i^-alpha for i = 1..n, then rescaled so lambda.sum() == scale^2.
     """
     lam = np.arange(1, n + 1, dtype=float) ** (-alpha)
     return lam * (scale ** 2) / lam.sum()
