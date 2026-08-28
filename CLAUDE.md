@@ -177,8 +177,7 @@ produced five retractions; each of these exists because something was missed.
 - **He writes the load-bearing code himself.** Claude does scaffolding, sweeps,
   plots, caching, and formatting. Joel writes generative models, geometry
   functions, and anything he will have to defend under questioning. Flag which
-  is which when proposing work. This is a deliberate correction — in session 3
-  Claude wrote nearly everything, which weakened what the artifact demonstrated.
+  is which when proposing work.
 - Dead ends get logged, not deleted. Code may be removed from the working tree
   when a direction closes, but only with a git pointer added to the research log.
 - Say when something is untested or uncertain rather than asserting fluently.
@@ -199,17 +198,3 @@ produced five retractions; each of these exists because something was missed.
    obvious candidate but the register mismatch is real and unsolved).
 8. If time: does the hierarchy survive the `attack_enhanced_set` jailbreak
    rewrites of the same base questions?
-
-## Reading list
-
-**Read properly:** Chung, Lee & Sompolinsky on classification and geometry of
-general perceptual manifolds (the source of R_M and D_M — Joel knows this, but
-the write-up needs one plain-language paragraph motivating them for a reader who
-does not). Mamou et al. on separable manifolds in LM representations — this is
-the "someone already did manifold analysis" objection and needs a direct answer.
-SALAD-Bench paper for the taxonomy design rationale: the levels were drawn for
-benchmark coverage, which is a different objective from carving concepts a model
-might represent separately.
-
-**Skim:** Arditi et al. on the refusal direction (for argument structure);
-Anthropic global-workspace/J-lens paper and Neel's LessWrong review.
