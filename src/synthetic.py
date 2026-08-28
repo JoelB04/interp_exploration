@@ -1,27 +1,13 @@
 """Synthetic hierarchical manifolds.
 
-Design note, since this is the part that matters architecturally:
-
-`generate()` returns EXACTLY the format the empirical loader returns --
-(X, y_parent, y_child). Every measurement function then works unchanged on
-synthetic and real data, so a null comparison cannot be corrupted by the two
-paths handling things differently. If you change the return signature here,
-change it in the data loader too.
-
-The two dataclasses below hold values and nothing else. No logic lives in them.
-They are separate because the two sweeps vary them independently:
-
-    calibration  vary the SPEC (M), pin the geometry
-    power        pin the SPEC at the real design, vary the GEOMETRY
-
 Notation:
     M   points per child manifold  (samples)
-    n   ambient dimension          (neurons)  -- 1536 for Qwen2.5-1.5B
+    n   ambient dimension          (neurons) for 1536 for Qwen2.5-1.5B
     P   number of parents
     C_p number of children of parent p
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import numpy as np
 
 @dataclass
@@ -46,8 +32,8 @@ class HierarchySpec:
     def pair_counts(self) -> tuple:
         """(within-parent pairs, between-parent pairs) among child manifolds.
 
-        This is the actual n of the nesting test, and it is much smaller than
-        the number of manifolds. Print it before trusting any nesting claim.
+        This is the actual n of the nesting test, it is much smaller than
+        the number of manifolds. 
         """
         c = self.branching
         within = sum(k * (k - 1) // 2 for k in c)
@@ -56,8 +42,7 @@ class HierarchySpec:
 
     @classmethod
     def from_labels(cls, y_parent, y_child, M, n=1536):
-        """Read the branching structure off real data, so mirroring the
-        empirical design cannot silently drift from it."""
+        """Read the branching structure off real data."""
         y_parent, y_child = np.asarray(y_parent), np.asarray(y_child)
         branching = []
         for p in np.unique(y_parent):
@@ -67,15 +52,13 @@ class HierarchySpec:
 
 @dataclass
 class GeometryParams:
-    """What shape. No tree structure here.
+    """sigma_ratio is the correlation parameter and the thing that power sweep varies:
 
-    sigma_ratio is the signal knob and the thing that power sweep varies:
+        0  children sit exactly on their parent so perfect nesting
+        1  children scattered as widely as parents are effectively flat
 
-        0.0  children sit exactly on their parent  -> perfect nesting
-        1.0  children scattered as widely as parents are -> effectively flat
-
-    Only the ratio is identifiable -- the overall scale cancels out of every
-    dimensionless statistic -- so sigma_p is pinned at 1 and not exposed.
+    Only the ratio is identifiable, the overall scale cancels out of every
+    dimensionless statistic, so sigma_p is pinned at 1.
     """
 
     sigma_ratio: float = 0.3      # sigma_c / sigma_p
@@ -87,34 +70,30 @@ class GeometryParams:
     shared_within: bool = True    # same within-covariance for every child
 
 
+def spectrum(n: int, alpha: float, scale: float = 1.0) -> np.ndarray:
+    """Power-law eigenvalue spectrum, normalised to total variance scale^2.
+    lambda_i ~ i^-alpha for i = 1..n, then rescaled so lambda.sum() == scale^2.
+    """
+    lam = np.arange(1, n + 1, dtype=float) ** (-alpha)
+    return lam * (scale ** 2) / lam.sum()
+
+
 def generate(spec: HierarchySpec, params: GeometryParams, rng) -> tuple:
     """Sample a hierarchical point cloud.
     Returns
-        X         (spec.total_points, spec.n) float array
+        X         (spec.total_points, spec.n) array
         y_parent  (spec.total_points,) int, which parent each point belongs to
         y_child   (spec.total_points,) int, which child manifold
     Sigma_w carries the within-manifold shape. A power-law spectrum
-    lambda_i proportional to i^-alpha gives a tunable participation ratio;
-    alpha near 0 is isotropic (D_M -> n), large alpha is low-dimensional.
+    lambda_i proportional to i^-alpha gives an adjustable participation ratio;
+    alpha near 0 is isotropic (D_M goes to n), large alpha is low dimensional.
     Scale it so its total variance is within_scale^2.
 
-    Decisions the stubs leave open, which are yours to make and defend:
+    The default setting is that parents are drawn isotropically in the whole space. This is unlikely empirically
+    since concepts of the same type likely share a common subspace. This is controlled with the Geometry parameter parent_subspace. 
+    Similarly for shared_within, where child shape/covariance is controlled by shared_within.
 
-      - parent_subspace. Isotropic parent centres in 1536 dimensions are
-        mutually near-orthogonal, which is a strong and possibly wrong claim
-        about what a hierarchy looks like. Confining them to a k-dimensional
-        subspace says the model has a low-rank "kind of harm" axis. These give
-        very different nulls.
-
-      - shared_within. Shared is the clean null. Per-child covariance is more
-        realistic and adds a parameter you would then have to fit.
-
-      - Whether to draw Sigma_w's eigenbasis fresh per child or share it. If
-        every child shares an eigenbasis, the manifolds are parallel slabs;
-        if not, they are randomly oriented. This is a real modelling claim.
-
-    Keep it a pure function of (spec, params, rng) so a sweep is reproducible
-    from the seed alone.
+    A sweep is reproducible from the seed alone.
     """
 
     X, y_parent, y_child = [], [], []
@@ -122,9 +101,9 @@ def generate(spec: HierarchySpec, params: GeometryParams, rng) -> tuple:
     if params.parent_subspace == 0:
         parent_centroids = rng.normal(size = (spec.n_parents, spec.n))
     else:
-        k = params.parent_subspace
-        B,_ = np.linalg.qr(rng.normal(size = (spec.n, k))) #(n,k) shared subspace
-        parent_centroids = rng.normal(size = (spec.n_parents, k)) @ B.T
+        k_sub = params.parent_subspace
+        B,_ = np.linalg.qr(rng.normal(size = (spec.n, k_sub))) #(n,k) shared subspace
+        parent_centroids = rng.normal(size = (spec.n_parents, k_sub)) @ B.T
 
     child_id = 0
     U_shared, _ = np.linalg.qr(rng.normal(size=(spec.n, spec.n))) # Universal eigenbasis, assumes parents are drawn isotropically and share no common subspace
@@ -153,10 +132,3 @@ def generate(spec: HierarchySpec, params: GeometryParams, rng) -> tuple:
     return X, y_parent, y_child
 
 
-
-def spectrum(n: int, alpha: float, scale: float = 1.0) -> np.ndarray:
-    """Power-law eigenvalue spectrum, normalised to total variance scale^2.
-    lambda_i ~ i^-alpha for i = 1..n, then rescaled so lambda.sum() == scale^2.
-    """
-    lam = np.arange(1, n + 1, dtype=float) ** (-alpha)
-    return lam * (scale ** 2) / lam.sum()
