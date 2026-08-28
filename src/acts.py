@@ -31,17 +31,34 @@ def load(model_name: str = MODEL_NAME):
 
 
 def format_prompts(statements, tok, mode: str):
-    """Two readout regimes.
+    """Three readout regimes.
 
-    'raw'  -- the bare statement. The last token is the final token of the
-              statement itself (usually the period). The concept is read where
-              it was computed.
+    'raw'     -- the bare statement. The last token is the final token of the
+                 statement itself. The concept is read where it was computed.
 
-    'chat' -- statement wrapped in the chat template. The last token is the
-              generation-prompt token, which is IDENTICAL across all examples.
-              Any signal there had to be moved by attention from the statement.
+    'chat'    -- wrapped in the chat template AND in a true/false question.
+                 The last token is the generation-prompt token, identical
+                 across all examples, so any signal there was moved by
+                 attention from the statement.
 
-    This is the variable you discovered in session 1. Do not hardcode it.
+                 CAUTION, found 2026-08-28. The "Is the following true or
+                 false?" framing is a leftover from the closed truth-probe
+                 project (git 73f06af). For SALAD prompts it means the model is
+                 asked to JUDGE THE TRUTH of a harmful request rather than to
+                 respond to it -- its top next tokens are 'True' and 'False'.
+                 Every 'chat' result on SALAD measures that framing, not a
+                 request. Kept unchanged so existing cached activations remain
+                 correctly labelled; use 'request' for new work.
+
+    'request' -- the statement as a plain user turn, generation prompt
+                 appended, no task framing. What you would actually send to a
+                 chat model. Use this for anything about how the model responds
+                 to the prompt.
+
+    Readout position is a live experimental variable in this repo. Never
+    hardcode it, and never change what an existing mode name means -- the
+    activation cache keys on the mode string, so redefining one in place would
+    let stale tensors be silently reused under a new meaning.
     """
     if mode == "raw":
         return list(statements)
@@ -49,6 +66,15 @@ def format_prompts(statements, tok, mode: str):
         return [
             tok.apply_chat_template(
                 [{"role": "user", "content": f"Is the following true or false?\n{s}"}],
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            for s in statements
+        ]
+    if mode == "request":
+        return [
+            tok.apply_chat_template(
+                [{"role": "user", "content": s}],
                 tokenize=False,
                 add_generation_prompt=True,
             )

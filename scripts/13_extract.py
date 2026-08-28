@@ -39,7 +39,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 import salad  # noqa: E402
 from cache import cached_acts, cache_status  # noqa: E402
 
-MODES = ["raw", "chat"]
+# 'request' added 2026-08-28. 'chat' turned out to carry the truth-probe
+# project's "Is the following true or false?" framing, so every chat-mode
+# SALAD activation measures a truth-judgment task rather than a request.
+# 'raw' and 'chat' are already cached; only 'request' will compute.
+MODES = ["raw", "chat", "request"]
 SEED = 0
 
 

@@ -168,6 +168,13 @@ def main():
                             for i, j in pairs])
             if not np.isfinite(geo).all() or geo.std() == 0:
                 continue
+            # Normalise to units of the mean pairwise distance AT THIS LAYER.
+            # Residual-stream norms grow ~15,000x from layer 0 to 28, so raw
+            # residual magnitudes climb mechanically with depth and cannot be
+            # compared across layers. Dividing by the layer mean makes the
+            # statistic scale-free; it leaves every p-value unchanged, since a
+            # positive rescaling cannot alter a permutation test.
+            geo = geo / geo.mean()
             corr = float(np.corrcoef(lex, geo)[0, 1])
 
             gr, gn, gp = perm_diff_test(geo, groups, sizes, N_PERM, 7)
