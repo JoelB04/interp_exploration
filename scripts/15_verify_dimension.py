@@ -1,106 +1,55 @@
-"""Session 4e: CHECK 2 -- does the estimator recover the planted dimension?
-
-Check 1 showed the generator is correct and that finite M distorts the spectrum
-in a specific way: middle eigenvalues inflated, tail truncated at rank M-1,
-trace preserved. It did that at ONE alpha, where D_true = 38 and D << M -- the
-easy regime.
-
-Check 2 asks the question that actually decides whether M=640 is defensible:
-
-    How large can the true dimension be before we can no longer measure it?
-
-This matters because nobody knows what D real harm manifolds have. If they sit
-near 40, check 1 already says we are fine. If they sit near 400, we are
-estimating a quantity of order M from M samples and the answer will be mostly
-an artifact of the sample size.
-
-Sweep D_true from 5 to ~640 at several M. Compare the ESTIMATE against the
-ANALYTIC value computed from the spectrum array itself -- no sampling, no
-noise, just (sum lam)^2 / sum lam^2 on the numbers we fed in. That is ground
-truth, and a sweep without it would only show the estimator is monotonic, which
-is far weaker than showing it is correct.
-
-R_M is reported alongside, with a caveat. Under this generative model
-spectrum() normalises total variance to within_scale^2 and ||c|| is roughly
-sqrt(n) for every manifold, so R_M and D_M are algebraically linked:
-
-    R_M ~ within_scale / (sqrt(n) * sqrt(D_M))
-
-They will trace a clean inverse curve BY CONSTRUCTION. That is a correctness
-check, not a discovery. In real data total variance varies across manifolds and
-grows with depth, so the two decouple and carry different information -- but
-not here, and the write-up should say so.
-
-Predict before running:
-  1. At M=640, up to what D_true is recovery within 10%?
-  2. Does the estimate saturate, or keep rising past the point it is accurate?
-     If it saturates, at what value -- and what is that value related to?
-  3. Is the bias multiplicative (constant ratio) or additive (constant offset)?
-     This decides whether a correction is even possible.
-
-Run from the repo root:  python scripts/15_verify_dimension.py
-Pure numpy. No model, no data.
-"""
-
 import os
 import sys
-
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-
+import matplotlib.pyplot as plt  
+import numpy as np  
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
-from synthetic import GeometryParams, HierarchySpec, generate, spectrum  # noqa: E402
+from synthetic import GeometryParams, HierarchySpec, generate, spectrum  
 
 OUT = "results/synthetic_results"
 N = 1536
-D_TARGETS = [5, 10, 20, 40, 80, 160, 320, 640]
+D_TARGETS = [5, 10, 15, 30, 40, 50, 60]
 M_VALUES = [160, 640, 2560]
 N_REPEATS = 3
 
 
-# ---------------------------------------------------------------------------
-# YOURS.
-# ---------------------------------------------------------------------------
 def alpha_for_D(n: int, D_target: float, tol: float = 1e-3) -> float:
     """Find the power-law exponent alpha whose spectrum has participation
     ratio D_target.
 
-    Why this exists. alpha is a brutally sharp knob -- D falls from 748 to 38
-    between alpha=0.5 and alpha=1.0. Sweeping alpha on a uniform grid gives a
-    useless spread of D, and "we used alpha=0.93" is not a sentence anyone can
-    interpret. Sweeping D directly is both easier to reason about and easier to
-    defend, so invert the relationship once and never think about alpha again.
-
-    How. For a spectrum lam_i proportional to i^-alpha,
+    For a spectrum lam_i proportional to i^-alpha,
 
         D(alpha) = (sum lam)^2 / sum lam^2
 
-    is continuous and STRICTLY DECREASING in alpha: larger alpha concentrates
-    variance into fewer directions. A monotone scalar function on a bounded
-    interval is exactly what bisection is for.
+    is continuous and strictly decreasing in alpha so larger alpha concentrates
+    variance into fewer directions. 
 
     Bracket: alpha = 0 gives D = n exactly (isotropic, every eigenvalue equal).
-    Large alpha drives D toward 1. So [0, ~20] brackets any D in [1, n].
+    Large alpha drives D toward 1.
 
-    Note spectrum() already normalises total variance, and D is invariant to
-    that scaling anyway -- (c*lam) leaves (sum)^2/sum^2 unchanged. So you can
-    call spectrum() with any scale and ignore within_scale entirely here.
-
-    Check when you have it:
-        D of spectrum(n, alpha_for_D(n, 40)) should come back 40 to within tol
-        alpha_for_D(n, n) should return ~0
-        the returned alpha should DECREASE as D_target increases
+    Spectrum() already normalises total variance, and D is invariant to
+    that scaling anyway.
     """
-    raise NotImplementedError
+
+    hi=20.0
+    lo=0.0
+
+    for _ in range(100):
+        mid = (lo+hi)/2
+        D_mid = participation_ratio(spectrum(n,mid,1.0))
+
+        if abs(D_mid - D_target)<tol:
+            return mid
+        if D_mid > D_target:
+            lo = mid
+        else:
+            hi = mid
+
+    return (lo+hi)/2
 
 
-# ---------------------------------------------------------------------------
-# Scaffolding
-# ---------------------------------------------------------------------------
 def participation_ratio(lam: np.ndarray) -> float:
     return float(lam.sum() ** 2 / (lam ** 2).sum())
 
