@@ -4,11 +4,18 @@ The project has shown there is structure. It has not shown the structure
 matters. A reader can ask "so what" and there is currently no answer.
 
 Session 1 established that the final norm is already applied to
-hidden_states[-1], so lm_head(hs[-1]) reproduces the logits exactly. Under the
-`chat` mode the readout sits on the generation-prompt token -- meaning the
+hidden_states[-1], so lm_head(hs[-1]) reproduces the logits exactly. Under
+`request` mode the readout sits on the generation-prompt token -- meaning the
 cached activations ALREADY CONTAIN the model's response to all 8320 harmful
 prompts. The behaviour is sitting in the cache, unmeasured, and reading it costs
 zero forward passes.
+
+MODE: 'request', not 'chat'. The first run of this script used 'chat' and its
+descriptive stage caught that 'chat' wraps every prompt in "Is the following
+true or false?", a leftover from the closed truth-probe project. The model was
+answering a true/false question, not deciding whether to refuse -- its top
+tokens were 'True' and 'False'. 'request' is the plain user turn with no task
+framing, re-extracted 2026-08-28.
 
 Three stages:
 
@@ -98,7 +105,7 @@ def main():
 
     for ti, (t, dom) in enumerate(tasks):
         cap = min(len(salad.fetch_task(t, cap=10 ** 9)), salad.EXTRACT_CAP)
-        A, _ = cached_acts(t, "chat", _no_loader, M=cap, seed=SEED)
+        A, _ = cached_acts(t, "request", _no_loader, M=cap, seed=SEED)
         h = A.numpy()[rng.choice(cap, M_EQUAL, replace=False)][:, -1, :]
 
         c, scores = Counter(), []
