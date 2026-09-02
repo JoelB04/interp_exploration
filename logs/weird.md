@@ -1,51 +1,46 @@
 # Weird
 
-One line per surprise. Don't chase them during exploration — the point is to have
-a list to mine later. This is the best source of a project question that is
-genuinely mine rather than lifted from a suggested-topics doc.
+One line per surprise from the manifold-geometry project. Don't chase them during
+exploration — the point is to have a list to mine later. This is the best source
+of a project question that is genuinely mine rather than lifted from a
+suggested-topics doc.
+
+Surprises from the earlier truth-probe project are in
+`logs/archive_truth_probes_weird.md`.
 
 Format: `YYYY-MM-DD — observation. (where it came up)`
 
 ---
 
-- 2026-08-23 — Naive cosine similarity between activations is ~0.99 for every
-  pair, true/false alike. A handful of massive-activation dimensions dominate the
-  norm and swamp everything else. Subtracting the mean fixes it. (session 1)
-- 2026-08-25 — Transfer is wildly asymmetric. `neg_cities → cities` = 0.002 but
-  `cities → neg_cities` = 0.332 (raw). A pure sign flip would be symmetric. (s3)
-- 2026-08-25 — `larger_than → smaller_than` = 0.013 but `smaller_than →
-  larger_than` = 0.649 (raw). Two logically mirror-image datasets, opposite
-  behaviour. In `chat` the asymmetry REVERSES: 0.941 vs 0.323. (s3)
-- 2026-08-25 — In raw, `smaller_than` transfers well to nearly everything (row
-  mean 0.84) while `larger_than` transfers terribly (0.37). Same task, mirrored. (s3)
-- 2026-08-25 — Within-dataset AUROC ANTI-predicts transfer: Spearman -0.62 (raw),
-  -0.45 (chat). The best in-distribution probes are the worst travellers. (s3)
-- 2026-08-25 — Unembedding the raw probe directions gives semantic garbage
-  ('imates', 'otty', '=sub'). The chat directions give clean correctness
-  vocabulary (' incorrect', ' invalid', ' Neither', 'yes', ' ✓'). Same probe
-  method, same model, different readout token. (s3b)
-- 2026-08-25 — Val-based layer selection is unstable: `cities` picks anywhere in
-  layers 16-28 across 20 split repeats (mode 16, only 7/20). `companies` picks
-  layer 27 in 4/20 and ranges 16-28. Layer choice drives most of the transfer
-  variance. (s3c)
-- 2026-08-25 — Some transfer cells are effectively BIMODAL across splits:
-  chat `cities → neg_cities` = 0.587 +/- 0.44, i.e. sometimes ~0.95 and
-  sometimes ~0.05. A single split reads as a clean finding either way. (s3c)
-- 2026-08-25 — Sharp transition in chat between L17 and L20: every negation pair
-  goes from ~0.05 (anti-generalising) to ~0.97 (near-perfect transfer). Mean
-  off-diagonal transfer jumps 0.677 -> 0.946 between L16 and L18. (s3d)
-- 2026-08-25 — In raw, `cities -> neg_cities` never recovers at any layer (best
-  ~0.43 at L17, 0.276 at L28), but `sp_en -> neg_sp_en` does (0.854 at L28).
-  Same negation, different fate. (s3d)
-- 2026-08-25 — Fluency alone solves sp_en_trans (AUROC 0.999) and neg_sp_en_trans
-  (0.002). Those two datasets carry no information about truth representations. (s3f)
-- 2026-08-25 — Statement LENGTH leaks the label in larger_than (0.654) and
-  smaller_than (0.346). Dataset defect, not a model property. (s3f)
-- 2026-08-25 — larger_than and smaller_than have opposite fluency-truth signs yet
-  the probe transfers between them at 0.946. The fluency sign-flip story predicts
-  inversion here and fails. Unexplained. (s3f)
-- 2026-08-25 — Probe/fluency correlation on `cities` is +0.553 raw but +0.001
-  holding the label fixed. Almost the whole correlation was the shared cause. (s3g)
-- 2026-08-25 — Negation anti-generalisation splits in two: sp_en is entirely a
-  fluency artifact (0.000 -> 0.38 when residualised), cities and larger/smaller
-  are not (0.013 -> 0.089). Same surface phenomenon, different causes. (s3g)
+- 2026-08-28 — Massive-activation dimensions do NOT dominate the covariance
+  spectrum, only the centroid. Top-5 variance share is 7–10% (raw), ~3% (chat),
+  and dropping them RAISES D (23.0 → 31.7). A large constant offset moves the
+  mean without contributing to covariance. (16_empirical_spectrum)
+- 2026-08-28 — Real manifolds are LARGER than the gaps between their centroids.
+  Within-spread / between-centroid distance is 1.6–5.5, against 0.018 in the
+  synthetic model. Two orders of magnitude off, and it invalidated check 3's
+  noise floor. (18_empirical_nesting)
+- 2026-08-28 — Nesting measured to sd 0.001–0.006 despite only 12 within-parent
+  pairs. Concentration of measure: each distance is a sum over 1536 coordinates,
+  so individual distances are themselves low-variance. High ambient dimension
+  works FOR this measurement, which is not the intuition. (17_verify_nesting)
+- 2026-08-28 — At M=160 the two estimator biases cancel exactly at D=15, giving
+  D_hat/D = 1.00 that is two errors offsetting rather than accuracy. A ratio near
+  1 is not evidence of a good estimate. (15_verify_dimension)
+- 2026-08-28 — `chat` layer 0 is EXACTLY degenerate: one distinct row across 800
+  prompts, total variance 0.0. Free exact null — any structure reported there is
+  a bug. (13_extract verification)
+- 2026-08-28 — The refusal script's descriptive sanity check found a framing bug
+  it was not looking for: `chat` mode still carried "Is the following true or
+  false?" from the closed project, so the model was answering true/false rather
+  than deciding whether to refuse. Top tokens were 'True' and 'False'. (21_refusal)
+- 2026-08-29 — Refusal ordering cuts across the taxonomy. Adult Content (0.904)
+  and Unfair Representation (0.771) share a parent and sit nearly the full range
+  apart. (21_refusal)
+- 2026-09-01 — MMLU has much LOWER lexical–geometric correlation than SALAD
+  (0.20–0.47 vs 0.76–0.89), yet MMLU's nesting is the one that vanishes entirely
+  under the lexical control while SALAD's survives. Those two facts together are
+  odd and I have no story for them. (23_compare_taxonomies)
+- 2026-09-01 — MMLU nests in `request` mode (z = −3.6 at layers 22–26) but barely
+  at all in `raw`. SALAD nests in both. Readout position changes which taxonomy
+  shows structure. (23_compare_taxonomies)
