@@ -47,3 +47,15 @@ Format: `YYYY-MM-DD — observation. (where it came up)`
 - 2026-09-01 — MMLU nests in `request` mode (z = −3.6 at layers 22–26) but barely
   at all in `raw`. SALAD nests in both. Readout position changes which taxonomy
   shows structure. (23_compare_taxonomies)
+
+- 2026-09-04 — The taxonomy effect is robust to readout position but the
+  LEXICAL-INDEPENDENT part of it is not. Re-running in `request` instead of the
+  retired `chat`, the raw-mode residual survives at all six sampled layers while
+  request fails at L2 (p = 0.11) and is marginal at L20 (p = 0.063). Whatever
+  survives the vocabulary control is more fragile than the headline effect, and
+  I had been treating them as one claim. (10_random_partition, 11_lexical_control)
+
+- 2026-09-04 — The massive-activation dimensions are almost entirely a `raw`
+  phenomenon. Dropping the top-5 variance dims at layer 14 raises D by 8–11 in
+  raw (variance share 7–10%) but by 0.1–0.4 in request (share 2–3%). The chat
+  template appears to absorb them. (07_empirical_spectrum)

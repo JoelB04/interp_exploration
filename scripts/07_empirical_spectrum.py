@@ -142,9 +142,14 @@ def main():
         ax.plot(mu, color=c, lw=2, label=mode)
         ax.fill_between(range(n_layers), mu - sd, mu + sd, color=c, alpha=.18)
     ax.axhline(M_EQUAL - 1, color="k", ls=":", lw=1.2, label="rank cap M-1")
-    ax.set_xlabel("layer"); ax.set_ylabel("participation ratio D")
+    # Log scale, or the rank cap at 639 flattens D (5-38) into an unreadable
+    # line along the axis. The point of the panel is the SIZE of that gap, so
+    # both have to be legible at once.
+    ax.set_yscale("log")
+    ax.set_ylim(3, 1000)
+    ax.set_xlabel("layer"); ax.set_ylabel("participation ratio D  (log)")
     ax.set_title("D by layer, mean +/- sd over 13 tasks", fontweight="bold")
-    ax.legend(fontsize=8); ax.grid(alpha=.25)
+    ax.legend(fontsize=8); ax.grid(alpha=.25, which="both")
 
     ax = axes[2]
     for mode, c in zip(MODES, ["#2471a3", "#c0392b"]):
@@ -152,9 +157,16 @@ def main():
         ax.plot(np.nanmean(R2[mode], 0), color=c, lw=1.2, ls="--",
                 label=f"{mode}: fit r2")
     ax.axhline(1.0, color="0.4", ls=":", lw=1)
+    # raw layer 0 fits garbage (alpha ~48, r2 0.70) because a bare prompt's last
+    # token takes only ~93 distinct values. Clipping the axis keeps that one
+    # excluded point from flattening the 27 layers that matter; it is discussed
+    # in the text rather than hidden.
+    ax.set_ylim(0, 2.2)
     ax.set_xlabel("layer"); ax.set_ylabel("alpha  /  r2")
-    ax.set_title("power-law exponent and goodness of fit", fontweight="bold")
-    ax.legend(fontsize=8); ax.grid(alpha=.25)
+    ax.set_title("power-law exponent and goodness of fit\n"
+                 "(raw layer 0 is off-scale at alpha 48, see text)",
+                 fontweight="bold", fontsize=10)
+    ax.legend(fontsize=8, loc="lower right"); ax.grid(alpha=.25)
 
     fig.suptitle("Is the real within-manifold spectrum a power law, and what D "
                  f"does it imply?  (M={M_EQUAL}, n=1536)", fontsize=12)

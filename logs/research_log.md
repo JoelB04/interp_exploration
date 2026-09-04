@@ -213,7 +213,7 @@ constant offset shared by every prompt and the nesting statistic is built from
 centroid *differences*. Expected the p-values to move a little and the direction
 to be unchanged. Would have been surprised by a sign flip.
 
-**Setup.** No new forward passes -- `request` activations for all 13 tasks were
+**Setup.** No new forward passes, `request` activations for all 13 tasks were
 already cached from 2026-08-28. Changed MODES in scripts 07, 09, 10, 11 from
 ["raw","chat"] to ["raw","request"] and reran. M=640, 2000 permutations
 (partition) / 4000 (lexical).
@@ -231,7 +231,7 @@ already cached from 2026-08-28. Changed MODES in scripts 07, 09, 10, 11 from
     residual p      raw 0.037 -> 0.004 (L2 -> L28), survives at all 6 layers
                     request 0.112 at L2, 0.063 at L20, else < 0.021
 
-**One claim weakened.** The residual does NOT survive at every layer under
+**One claim weakened.** The residual does not survive at every layer under
 `request`. Claim 4 said it survives, full stop; that was true of raw+chat and is
 not true of raw+request. Amended below.
 
@@ -241,10 +241,17 @@ plots the normalised effect size beside it: flat, while p falls.
 
 **Read.** The headline result is robust to readout position. The
 lexical-independent part of it is not, and that is now stated as a limitation
-rather than left implicit in a figure nobody would check.
+rather than left implicit in a figure.
 
-**Next.** Recalibrate within_scale and run the power sweep at spread/separation
-1.5-5.5. Still the one real gap.
+**Spectrum, re-measured in request.** Layer-mean fit r2 0.958-0.999 (raw),
+0.997-0.999 (request); alpha 1.02-1.85. Layer-mean D 8-22 against the rank cap
+639, per-manifold 5.6-37.6 -- so a few manifolds sit above the D ~ 30 that check
+2 verified, which the README now says rather than quoting "10-25" as before.
+
+The massive-activation ablation still holds and is sharper in request: dropping
+the 5 highest-variance dims at layer 14 raises D by 8-11 in raw (top-5 variance
+share 7-10%) but by only 0.1-0.4 in request (share 2-3%). Those dimensions move
+the centroid.
 
 --------------------------------------------------------------------------------
 

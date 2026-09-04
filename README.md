@@ -121,9 +121,9 @@ is why $\hat D < D$.
 ![spectrum recovery](figures/check1_spectrum_recovery.png)
 
 **2, How large can D be before it cannot be measured?** Within 10% up to
-D ≈ 30 at M=640. Across the empirical range (D = 10–25) the bias moves only
-0.95 → 0.92 — approximately a shared constant, so it **cancels in cross-manifold
-comparisons**.
+D ≈ 30 at M=640. Across the empirical range (layer-mean D = 8–22, measured
+below) the bias moves only 0.95 → 0.92 — approximately a shared constant, so it
+**cancels in cross-manifold comparisons**.
 
 ![dimension recovery](figures/check2_dimension_recovery.png)
 
@@ -146,9 +146,26 @@ The right panel is also where this project's main gap lives: it establishes a
 noise floor only out to σ = 1, while the real data sits at 1.5–5.5. See
 *What this does not show*.
 
-**Run out of order, on purpose:** before trusting the synthetic null at all, is
-the real within-manifold spectrum actually a power law? It is: r^2 = 0.95–0.999
-at every layer. And D = 10–25, far below the rank cap, so M=640 is good.
+**Run out of order, on purpose:** the synthetic null assumes the within-manifold
+spectrum is a power law, $\lambda_i \propto i^{-\alpha}$. Before trusting any of
+it, is that true of the real data? Checking an assumption of the instrument
+against reality belongs before the measurement, not after.
+
+![empirical spectrum](figures/empirical_spectrum.png)
+
+It is a power law. Layer-mean fit $r^2$ is 0.96–0.999 (`raw`) and 0.997–0.999
+(`request`) at every layer 2–28, with α between 1.0 and 1.9 — so the synthetic
+family is the right one.
+
+And **D is small: layer-mean 8–22 against a rank cap of 639.** The measurement is
+nowhere near censored, which is what makes M=640 defensible. Individual manifolds
+span 5.6–37.6, so a handful sit just above the D ≈ 30 that check 2 verified to
+within 10%; those are the least-trustworthy points in the set.
+
+Two exclusions, both stated rather than quietly dropped. `raw` layer 0 fits
+badly ($r^2$ 0.70, α 48) because the last token of a bare prompt takes only ~93
+distinct values across 800 prompts — it is off-scale in the right panel.
+`request` layer 0 is exactly degenerate.
 
 ## Results
 
@@ -374,18 +391,27 @@ figures/                the plots reproduced in this README
 
 ## Running it
 
-CPU only. Extraction is the only slow part, everything downstream reads cached
-tensors and runs in seconds.
+CPU only. Extraction is the only slow part. Everything downstream reads cached
+tensors — seconds for the permutation tests, ~15 min for the spectra, which
+SVD 13 manifolds at every layer in both modes.
 
 ```bash
+python scripts/02_explore_salad.py    # taxonomy tree and confound report
+python scripts/03_audit_plot.py       # -> salad_task_counts.png
+
 python scripts/04_extract.py          # ~10 h, 3 readout modes, 13 tasks
 python scripts/13_extract_mmlu.py     # ~3 h
+
 python scripts/07_empirical_spectrum.py
 python scripts/09_empirical_nesting.py
 python scripts/10_random_partition.py
 python scripts/11_lexical_control.py
+python scripts/12_refusal.py
 python scripts/14_compare_taxonomies.py
 ```
+
+Figures land in `results/`, which is gitignored; `figures/` holds the copies this
+README embeds.
 
 Synthetic checks need no data:
 
