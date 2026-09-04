@@ -9,10 +9,18 @@ controlling for the words the categories happen to use.
 
 ---
 
-> **[YOUR VOICE — motivation]** *Two or three sentences on why you cared about
-> this. Worth mentioning the background it comes from (hierarchical manifolds,
-> Gardner capacity) and why applying that to safety-relevant concepts seemed
-> worth a look. A reader wants to know why you, specifically, asked this.*
+> **[YOUR VOICE — motivation]** *Your own draft, recovered from the working tree.
+> It stops mid-sentence — finish it and delete this note.*
+>
+> This project is inspired by Haim Sompolinsky and his work on concept manifolds
+> in neural networks, as well as my work within his lab. The thesis for the
+> project was this: do misaligned concepts have different geometric structure in
+> the representation space of a neural network? If so, what features are
+> different and why? As it turns out, the hierarchical arrangement of concept
+> manifolds may give insights into how misaligned concepts are represented.
+>
+> To research this I use Qwen2.5-1.5B on the SALAD-Bench dataset, which organizes
+> **⟵ [unfinished]**
 
 ---
 

@@ -183,7 +183,10 @@ structure, on a dataset that cannot test it properly.
 **Question.** Does representational geometry reflect an externally-given category
 hierarchy in general, or is the SALAD result specific to harm?
 
-**Prediction (written before the analysis).** *(not recorded)*
+**Prediction (written before the analysis).** I think the MMLU dataset will
+experience less semantic clustering and a random baseline compared to misaligned
+concepts. *(Joel's, written before the run; recovered 2026-09-03 from a
+working-tree copy that predated the log split.)*
 
 **Setup.** `src/mmlu.py`, `22_extract_mmlu.py`, `23_compare_taxonomies.py`.
 13 MMLU subjects under MMLU's own published 4-way grouping, branching [4,3,3,3],
@@ -219,7 +222,12 @@ inter-category geometry is overwhelmingly vocabulary; MMLU's much less so.
 taxonomy) both paid. The synthetic null band under the real regime is still
 outstanding -- see below.
 
-**Read.** This is the opposite of the deflationary reading I had been expecting.
+**Read.** The prediction was borne out: MMLU clusters less than the harm
+taxonomy, and after the lexical control it is indistinguishable from its own
+random baseline. Worth flagging that this is a confirmed pre-registered
+prediction rather than a pattern found by looking, since it is the only one in
+this project that was recorded before the run and then held.
+
 Two caveats keep it from being "harm is special": MMLU's 4-way grouping is
 coarser and partly administrative -- STEM/humanities/social sciences is a
 university-department carving and "other" is an explicit residual holding
