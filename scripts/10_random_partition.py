@@ -149,8 +149,15 @@ def main():
     p = os.path.join(OUT, "random_partition.png")
     fig.savefig(p, dpi=150); plt.close(fig)
     print(f"\nwrote {p}")
+    # Save the null's shape, not just p. The 5th percentile IS the detection
+    # threshold for this test, so it is what a power statement has to be built
+    # from -- see scripts/15.
+    for m in MODES:
+        store[m]["null5"] = np.nanpercentile(store[m]["null"], 5, axis=0)
+        store[m]["nullsd"] = np.nanstd(store[m]["null"], axis=0, ddof=1)
     np.savez(os.path.join(OUT, "random_partition.npz"),
-             **{f"{k}_{m}": store[m][k] for m in MODES for k in ("real", "p")})
+             **{f"{k}_{m}": store[m][k] for m in MODES
+                for k in ("real", "p", "null5", "nullsd")})
 
 
 if __name__ == "__main__":

@@ -296,7 +296,69 @@ exactly N(0, Sigma_w/M), so the M x n cloud never has to be built, and since
 distances are invariant under the orthogonal U the sweep stays in the
 eigenbasis. Stage B checks this against `generate()` instead of asserting it.
 
-**Result.** *(pending -- run in progress at time of writing)*
+**Result, and the prediction was half right.**
+
+Stage A. within_scale = 139 (raw, calib 2.38) and 108 (request, calib 1.85). The
+old default of 1.0 gives calib 0.0173, which is exactly 1/sqrt(2n) -- so the
+"0.018" was never a considered choice, it was what you get when you leave the
+within-manifold scale at unity. Stage B: fast path agrees with generate() to
+0.0015 in ratio units.
+
+Predictions 1-3 held. Noise floor rose from 0.001 to 0.1355 (raw) / 0.1053
+(request), the predicted ~0.13. Ratio at sigma=0.3 inflated by 0.027 against a
+predicted ~0.03.
+
+Prediction 4 was WRONG, and wrong in a way that mattered. I guessed the MDE
+would land near ratio 0.80-0.85. The first sweep returned power = 1.00 at every
+point out to sigma = 1.0, which brackets nothing -- the grid simply ended before
+the test started failing. Extended to sigma = 9 and it reported MDE = 0.987.
+
+**That number is an artifact and is not quoted.** Power 1.00 at ratio 0.987
+should have been impossible: the real null has sd ~0.08, so a ratio 0.013 below
+1.0 is a sixth of a standard deviation from the null mean. Checking the
+synthetic's own null explains it:
+
+    synthetic null sd:  0.0787 at sigma 0.4
+                        0.0269 at sigma 1.25
+                        0.0078 at sigma 3.0
+    real null sd:       0.070-0.103 at EVERY layer, both modes
+
+The synthetic's null collapses as sigma grows; the real one never does. Cause:
+the generator draws 13 exchangeable manifolds, so at high sigma the within- and
+between-parent distances become interchangeable and permuting stops changing
+anything. Real manifolds are heterogeneous -- Malicious Use tight, Misinformation
+anti-nested at 1.13 -- and that heterogeneity is what keeps the real null wide.
+At the sigma reproducing the observed ratio the synthetic null is ~3x too tight,
+which is precisely the inflation that produced 0.987.
+
+**Stage D, the bound that does not depend on the model.** For a one-sided
+permutation test the detection threshold IS the 5th percentile of the real null,
+and the observed ratio carries a bootstrap sd of 0.008-0.009, so 80% power sits
+0.84 sd below it:
+
+    mode      threshold   boot sd   MDE@80%   observed   margin
+    raw           0.866    0.0077     0.860      0.775   +0.085
+    request       0.850    0.0090     0.842      0.760   +0.082
+
+**Read.** The design detects parent structure whenever the nesting ratio falls
+to about 0.85 or below, and is blind above that. The observed effect clears the
+threshold with a margin of ~0.08, so the positive result is not a power artifact.
+But the margin is narrow: an effect only slightly weaker than SALAD's would have
+been missed entirely, and that is the honest bound to attach to the MMLU and
+refusal nulls. Neither of those is evidence of absence below ratio ~0.85.
+
+Standing claim to add: this design could not have detected nesting weaker than
+ratio ~0.85, so every null in this project is bounded, not empty.
+
+**Also worth keeping.** The synthetic remains fine for what checks 1-3 used it
+for -- estimator calibration, where the manifolds genuinely are exchangeable by
+construction. It fails specifically as a null model for a heterogeneous set of
+real manifolds. Making it heterogeneous (per-manifold within_scale and spread
+drawn to match the observed spread across the 13 tasks) is the obvious next
+version and would let the synthetic null be trusted directly.
+
+**Next.** Nothing outstanding on this thread. The gap the README admitted to is
+closed.
 
 
 ## 2026-09-04 -- housekeeping: geometry.py was dead code
@@ -332,7 +394,8 @@ saying a module is authoritative does not make it imported.
 
 ## STANDING CLAIMS
 
-*(amended 2026-09-04 after the re-run in `request`; see session 7)*
+*(amended 2026-09-04 after the re-run in `request` and the power sweep;
+see sessions 7 and 8)*
 
 1. SALAD's parent structure is reflected in Qwen2.5-1.5B's geometry above a
    matched random partition: p = 0.0005-0.015 at every layer 2-28, both readout
@@ -352,4 +415,8 @@ saying a module is authoritative does not make it imported.
    taxonomy coherence and register are unexcluded explanations.
 6. Refusal is near-ceiling (0.72-0.90) and shows no clustering by parent
    (p = 0.60). This dataset cannot test whether geometry predicts behaviour.
+7. The design detects nesting down to a ratio of about 0.85 and is blind above
+   that (80% power, from the real permutation null). The observed effect clears
+   it by ~0.08. Every null in this project is therefore bounded rather than
+   empty: nothing here rules out structure weaker than ratio 0.85.
 

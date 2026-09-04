@@ -52,6 +52,7 @@ harm, or simply because siblings use similar words?
 | **A residual survives the lexical control, in `raw`** | Flat with depth. p falls because the null tightens, not because the effect grows. Patchier in `request` |
 | **MMLU shows no comparable residual** | Its z goes *positive* after the lexical control |
 | **Refusal shows no structure** | But refusal is near-ceiling (0.72–0.90), so this dataset cannot test it |
+| **The nulls are bounded, not empty** | The design detects nesting to a ratio of ~0.85 and is blind above it |
 
 One more finding belongs here, though it concerns the instrument and not the
 model: **the synthetic null was calibrated 100× wrong.** It was caught before
@@ -288,6 +289,49 @@ that would be overselling a null. Refusal is at ceiling, so there is little
 variance left for any structure to predict, and 12 pairs gives low power either
 way. The honest statement is narrower: this dataset cannot answer the question.
 
+### What this design could detect
+
+A null is worthless without this. "We found no structure" and "we could not have
+found structure" look identical in a table, and the second is the more likely
+explanation whenever a design rests on 12 pairs.
+
+Check 3 measured a noise floor, but at a within-spread/separation of 0.018 while
+the real data sits at 1.5–5.8. So the synthetic was recalibrated to the real
+regime — `within_scale` 139 for `raw`, 108 for `request` — and the whole
+empirical pipeline rerun on planted hierarchies of known strength.
+
+![power sweep](figures/power_sweep.png)
+
+The first thing that changes is the noise floor. Two independent centroid
+estimates enter every distance, each carrying error of order
+`within_scale/√M`, so at M=640 the floor rises from check 3's 0.001 to **0.136**.
+A hundredfold, and it is why check 3's floor could not be quoted for the real
+design.
+
+The bound itself does *not* come from the synthetic, for a reason worth stating.
+The synthetic draws 13 exchangeable manifolds, so as nesting weakens its
+permutation null collapses — sd 0.079 at σ=0.4, but 0.008 at σ=3.0. The real null
+never collapses; it sits at 0.070–0.103 at every layer, because real manifolds
+are heterogeneous (*Malicious Use* tight, *Misinformation* anti-nested at 1.13).
+Run naively, the synthetic reports 80% power down to a ratio of 0.987, which is
+an artifact of its own too-tight null.
+
+So the bound is read off the real data's own permutation null, where the
+detection threshold is simply its 5th percentile:
+
+```
+mode      threshold   bootstrap sd   MDE @ 80% power   observed   margin
+raw           0.866         0.0077             0.860      0.775    +0.085
+request       0.850         0.0090             0.842      0.760    +0.082
+```
+
+**This design sees nesting at a ratio of about 0.85 or below, and is blind above
+it.** The observed effect clears that threshold with ~0.08 to spare, so the
+positive result is not manufactured by low power. The margin is narrow, though:
+an effect somewhat weaker than SALAD's would have been missed. That is the
+honest bound on the MMLU and refusal nulls — neither rules out structure weaker
+than ratio 0.85.
+
 ---
 
 > **Interpretation** The coolest part of this project came from the disagreement
@@ -317,10 +361,10 @@ way. The honest statement is narrower: this dataset cannot answer the question.
   layers under `raw`, but under `request` it fails at layer 2 (p = 0.11) and is
   marginal at layer 20 (p = 0.063). The taxonomy effect itself is robust to
   readout; the *lexical-independent part* of it is not.
-- **No power analysis at the real regime.** The synthetic null was calibrated at
-  a within-spread/separation ratio of 0.018; reality is 1.5–5.5. Recalibrating
-  and rerunning the power sweep is outstanding, so there is currently **no bound
-  on what this design could have detected.**
+- **The design is blind to nesting weaker than a ratio of ~0.85.** Quantified
+  rather than assumed, see *What this design could detect*. The observed effect
+  clears that by ~0.08, so it is not a power artifact, but the margin is narrow
+  and the MMLU and refusal nulls are bounded rather than empty.
 
 ---
 
@@ -390,6 +434,7 @@ scripts/10_random_partition.py     random-partition null
 scripts/11_lexical_control.py      lexical control
 scripts/12_refusal.py              refusal readout
 scripts/13, 14                     MMLU extraction and comparison
+scripts/15_power_sweep.py          what the design could detect
 
 logs/research_log.md    prediction before each run, then the result, then what
                         I got wrong. The primary record
@@ -417,6 +462,7 @@ python scripts/10_random_partition.py
 python scripts/11_lexical_control.py
 python scripts/12_refusal.py
 python scripts/14_compare_taxonomies.py
+python scripts/15_power_sweep.py      # ~15 min, no activations needed
 ```
 
 Figures land in `results/`, which is gitignored; `figures/` holds the copies this
@@ -437,7 +483,9 @@ Standards held throughout:
 1. **Equal M before any spectral comparison.** $D$ is capped at $M-1$.
 2. **Report M and n alongside every geometric quantity**, plus $\gamma = n/M$.
 3. **Power before interpretation.** Know what the design could detect before
-   looking. Only partially met here, see *What this does not show*.
+   drawing conclusions from what it did not find. Met, though late: the bound
+   was computed after the results rather than before, and it is in
+   *What this design could detect*.
 4. **Suspicion on success.** A clean result triggers an artifact hunt: length,
    opening-word templates, and layer-0 behaviour.
 5. **Fixed conventions.** Radius is

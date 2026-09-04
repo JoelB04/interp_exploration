@@ -52,8 +52,11 @@ SEED = 0
 EMPIRICAL = {"raw": dict(calib=2.38, ratio=0.772),
              "request": dict(calib=1.85, ratio=0.756)}
 
-SIGMAS = np.array([0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40,
-                   0.50, 0.65, 0.80, 1.00])
+# First attempt stopped at 1.00 and returned power 1.00 at every point, which
+# brackets nothing. Nesting weakens as sigma grows (ratio -> 1), so the grid
+# has to reach out to where the test genuinely starts failing.
+SIGMAS = np.array([0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.25, 1.5, 1.75,
+                   2.0, 2.5, 3.0, 4.0, 6.0, 9.0])
 
 PAIRS = list(combinations(range(sum(BRANCHING)), 2))
 TRUE_G = np.concatenate([[p] * k for p, k in enumerate(BRANCHING)])
@@ -154,6 +157,57 @@ def validate_fast_path():
     return worst
 
 
+def stage_d_model_free():
+    """The bound that does not depend on the generative model.
+
+    Stage C came out saying power = 1.00 down to a nesting ratio of 0.987, which
+    is wrong, and the reason is worth keeping. The synthetic draws 13 manifolds
+    that are statistically exchangeable, so as sigma grows its permutation null
+    collapses -- sd 0.079 at sigma 0.4 but 0.008 at sigma 3.0. The real null
+    never collapses: sd stays at 0.070-0.103 at every layer, because the real
+    manifolds are heterogeneous (Malicious Use tight, Misinformation anti-nested
+    at 1.13). At the sigma that reproduces the observed ratio the synthetic null
+    is roughly 3x too tight, and that inflated power is what produced 0.987.
+
+    So the defensible bound comes from the real data's own null. For a one-sided
+    permutation test the detection threshold IS the 5th percentile of that null,
+    and the observed ratio is measured to a bootstrap sd of 0.005-0.014, so 80%
+    power sits 0.84 sd below the threshold.
+    """
+    print()
+    print("=" * 74)
+    print("Stage D: model-free bound from the real permutation null")
+    print("=" * 74)
+
+    rp = np.load("results/random_partition.npz")
+    en = np.load("results/empirical_nesting.npz")
+
+    print(f"  {'mode':>9} {'threshold':>10} {'boot sd':>9} {'MDE@80%':>9} "
+          f"{'observed':>9} {'margin':>8}")
+    out = {}
+    for mode in ("raw", "request"):
+        n5 = rp[f"null5_{mode}"][2:29]
+        real = rp[f"real_{mode}"][2:29]
+        boot = en[f"ratio_{mode}"][1:, 2:29]           # b=0 is the full sample
+        sd = np.nanmean(np.nanstd(boot, axis=0, ddof=1))
+        thr = np.nanmean(n5)
+        mde = thr - 0.84 * sd
+        obs = np.nanmean(real)
+        out[mode] = dict(threshold=thr, sd=sd, mde=mde, observed=obs)
+        print(f"  {mode:>9} {thr:>10.3f} {sd:>9.4f} {mde:>9.3f} "
+              f"{obs:>9.3f} {mde - obs:>+8.3f}")
+
+    print()
+    print("  Read: this design detects parent structure whenever the nesting")
+    print("  ratio falls to about 0.84 or below. It is blind to anything weaker.")
+    print("  The observed effect clears that threshold, so the positive result")
+    print("  is not a power artifact -- but the margin is roughly 0.05-0.08 in")
+    print("  ratio units, which is narrow. A real effect only slightly weaker")
+    print("  than SALAD's would have been missed, and that is the honest bound")
+    print("  to put on the MMLU and refusal nulls.")
+    return out
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     rng = np.random.default_rng(SEED)
@@ -199,19 +253,58 @@ def main():
                   f"{ratios[si].std(ddof=1):>7.4f} {power[si]:>7.2f}")
 
         obs = EMPIRICAL[mode]["ratio"]
-        ok = np.where(power >= 0.80)[0]
-        if len(ok):
-            si = ok[-1]
-            print(f"\n  weakest nesting caught at 80% power: sigma = {SIGMAS[si]:.2f}, "
-                  f"which reads as ratio {ratios[si].mean():.3f}")
-            print(f"  observed on real data: {obs:.3f}  ->  "
-                  f"{'inside' if obs <= ratios[si].mean() else 'OUTSIDE'} "
-                  "the detectable range")
+        mu = ratios.mean(axis=1)
+
+        # Power falls as sigma rises. The MDE is where it crosses 0.80, and that
+        # number only means something if the grid actually straddles the crossing.
+        below = np.where(power < 0.80)[0]
+        if not len(below):
+            print()
+            print("  power >= 0.80 across the whole grid. The threshold is "
+                  "not bracketed,")
+            print("  so there is no MDE to quote yet -- extend SIGMAS and rerun.")
+        elif below[0] == 0:
+            print()
+            print("  power < 0.80 even at sigma = 0, which would mean the "
+                  "design detects nothing at all")
         else:
-            print("\n  no sigma on the grid reaches 80% power")
+            hi = below[0]
+            lo = hi - 1
+            f = (0.80 - power[hi]) / (power[lo] - power[hi])
+            mde_sigma = SIGMAS[hi] + f * (SIGMAS[lo] - SIGMAS[hi])
+            mde_ratio = mu[hi] + f * (mu[lo] - mu[hi])
+            print()
+            print(f"  MDE at 80% power: sigma = {mde_sigma:.2f}, which reads "
+                  f"as nesting ratio {mde_ratio:.3f}")
+            print(f"  nesting at or below {mde_ratio:.3f} is caught 4 times in 5; "
+                  "weaker than that can hide")
+            print(f"  observed on real data: {obs:.3f}  ->  "
+                  f"{'INSIDE' if obs <= mde_ratio else 'outside'} the detectable range")
+            print(f"  margin: {mde_ratio - obs:+.3f} in ratio units")
+
+        if mu[0] <= obs <= mu[-1]:
+            print(f"  observed ratio {obs:.3f} implies planted sigma "
+                  f"~ {np.interp(obs, mu, SIGMAS):.2f}")
 
     np.savez(os.path.join(OUT, "power_sweep.npz"), sigmas=SIGMAS,
              **{f"{k}_{m}": results[m][k] for m in results for k in ("ratio", "p")})
+
+    stage_d_model_free()
+    make_figure(results)
+
+
+def make_figure(results=None):
+    """Left: the sigma -> ratio calibration, which the synthetic gets right.
+    Right: the bound that replaces its power curve.
+
+    The synthetic power curve is deliberately NOT plotted. Stage D explains why:
+    it says power 1.00 down to ratio 0.987, and that is an artifact of the
+    synthetic's null collapsing when the real one does not.
+    """
+    if results is None:
+        z = np.load(os.path.join(OUT, "power_sweep.npz"))
+        results = {m: dict(ratio=z[f"ratio_{m}"]) for m in ("raw", "request")}
+    rp = np.load("results/random_partition.npz")
 
     fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.2))
     cols = {"raw": "#2471a3", "request": "#c0392b"}
@@ -221,34 +314,42 @@ def main():
         mu = r["ratio"].mean(axis=1)
         sd = r["ratio"].std(axis=1, ddof=1)
         ax.plot(SIGMAS, mu, color=cols[mode], lw=2, marker="o",
-                label=f"{mode}  (calib {EMPIRICAL[mode]['calib']})")
+                label=f"{mode} (calib {EMPIRICAL[mode]['calib']})")
         ax.fill_between(SIGMAS, mu - sd, mu + sd, color=cols[mode], alpha=.18)
-        ax.axhline(EMPIRICAL[mode]["ratio"], color=cols[mode], ls="--", lw=1.2)
     ax.plot(SIGMAS, SIGMAS / np.sqrt(1 + SIGMAS ** 2), color="k", ls=":", lw=1.4,
             label="noiseless  sigma/sqrt(1+sigma^2)")
+    ax.axhline(0.1355, color="0.40", ls="-.", lw=1.3,
+               label="noise floor here (0.136)")
+    ax.axhline(0.0010, color="0.75", ls="-.", lw=1.3,
+               label="noise floor in check 3 (0.001)")
+    ax.set_xscale("log"); ax.set_xlim(0.15, 10)
     ax.set_xlabel("planted sigma  (child scatter / parent scatter)")
     ax.set_ylabel("measured nesting ratio")
-    ax.set_title("dashed = observed on real data;\n"
-                 "gap to dotted = what the real regime costs",
+    ax.set_title("What the real regime costs:\n"
+                 "a noise floor 100x higher than check 3 assumed",
                  fontweight="bold", fontsize=10)
-    ax.legend(fontsize=8); ax.grid(alpha=.25)
+    ax.legend(fontsize=7.5, loc="lower right"); ax.grid(alpha=.25)
 
     ax = axes[1]
-    for mode, r in results.items():
-        ax.plot(SIGMAS, (r["p"] < 0.05).mean(axis=1), color=cols[mode], lw=2,
-                marker="s", label=mode)
-    ax.axhline(0.80, color="0.3", ls="--", lw=1.2, label="80% power")
-    ax.axhline(0.05, color="0.6", ls=":", lw=1)
-    ax.set_ylim(-0.03, 1.03)
-    ax.set_xlabel("planted sigma")
-    ax.set_ylabel("P(detected at p < 0.05)")
-    ax.set_title("power of the design as run\n"
-                 "13 manifolds, 12 within-parent pairs, M=640",
+    L = np.arange(29)
+    for mode in ("raw", "request"):
+        real = rp[f"real_{mode}"]
+        n5 = rp[f"null5_{mode}"]
+        ok = np.isfinite(real) & np.isfinite(n5)
+        ax.plot(L, real, color=cols[mode], lw=2, label=f"{mode}: observed")
+        ax.plot(L, n5, color=cols[mode], lw=1.4, ls="--",
+                label=f"{mode}: weakest detectable")
+        ax.fill_between(L, real, n5, where=ok, color=cols[mode], alpha=.12)
+    ax.axhline(1.0, color="k", ls=":", lw=1)
+    ax.set_xlabel("layer"); ax.set_ylabel("nesting ratio")
+    ax.set_ylim(0.65, 1.03)
+    ax.set_title("Shaded = the margin the result actually has\n"
+                 "Above the dashed line, this design is blind",
                  fontweight="bold", fontsize=10)
-    ax.legend(fontsize=8); ax.grid(alpha=.25)
+    ax.legend(fontsize=7.5, loc="lower left"); ax.grid(alpha=.25)
 
-    fig.suptitle("What nesting could this design have detected, at the regime "
-                 "the real data occupies?", fontsize=12)
+    fig.suptitle("What nesting could this design have detected at the regime the "
+                 "real data occupies?", fontsize=12)
     fig.tight_layout()
     p = os.path.join(OUT, "power_sweep.png")
     fig.savefig(p, dpi=150); plt.close(fig)
