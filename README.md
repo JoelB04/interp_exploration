@@ -44,17 +44,19 @@ harm, or simply because siblings use similar words?
 
 ## Headline findings
 
-| | |
+| Finding | Evidence |
 |---|---|
 | **The taxonomy beats a matched random partition** | p = 0.0005–0.015 at every layer 2–28, in both readout modes |
 | **One branch carries it** | Removing *Malicious Use* is the only exclusion that kills the effect (p 0.002 to 0.13) |
 | **~80% of it is vocabulary** | corr(lexical distance, geometric distance) = 0.73–0.91 |
-| **A residual survives the lexical control, in `raw`** | flat with depth; p falls because the null tightens, not because the effect grows. Patchier in `request` |
-| **MMLU shows no comparable residual** | its z goes *positive* after the lexical control |
-| **Refusal shows no structure** | but refusal is near-ceiling (0.72–0.90), so this dataset cannot test it |
+| **A residual survives the lexical control, in `raw`** | Flat with depth. p falls because the null tightens, not because the effect grows. Patchier in `request` |
+| **MMLU shows no comparable residual** | Its z goes *positive* after the lexical control |
+| **Refusal shows no structure** | But refusal is near-ceiling (0.72–0.90), so this dataset cannot test it |
 
-Plus one methodological result that mattered more than any of the above: **the
-synthetic null model was calibrated 100× wrong**, and measuring caught it before any power analysis was built on it.
+One more finding belongs here, though it concerns the instrument and not the
+model: **the synthetic null was calibrated 100× wrong.** It was caught before
+any power analysis had been built on top of it, and how it was caught is in
+*Bugs found*.
 
 ---
 
@@ -64,21 +66,21 @@ synthetic null model was calibrated 100× wrong**, and measuring caught it befor
 
 ![SALAD prompts per task](figures/salad_task_counts.png)
 
-The whole design falls out of this one plot. *Persuasion and Manipulation* at 640
-prompts is the binding constraint; *Defamation* (437) and the two Socioeconomic
-Harms tasks (651 and 200) are what had to be dropped to keep M high enough.
+The design falls out of this plot. *Persuasion and Manipulation*, at 640 prompts,
+is the binding constraint. *Defamation* (437) and the two Socioeconomic Harms
+tasks (651 and 200) had to go to keep M high enough.
 
-**Every manifold uses exactly M = 640 prompts.** The participation
-ratio $D$ is capped at $M-1$ and biased below it, so comparing manifolds of
-different sizes measures sample size and reports it as geometry. Parent manifolds
-contain more points than children by construction, so this confound points in
-exactly the direction of the hypothesis.
+**Every manifold uses exactly M = 640 prompts.** The participation ratio $D$ is
+capped at $M-1$ and biased below it, so comparing manifolds of different sizes
+measures sample size and reports it as geometry. Parent manifolds contain more
+points than children by construction, which means the confound points in exactly
+the direction of the hypothesis.
 
-M = 640 is set by the smallest kept task. Not 657, that would have dropped
-*Persuasion and Manipulation* and left a parent with a single child, costing a
-whole parent's worth of within-parent pairs.
+Why 640 and not 657? Stopping at 657 would have dropped *Persuasion and
+Manipulation*, leaving a parent with a single child and costing a whole parent's
+worth of within-parent pairs.
 
-**Main number**
+**The number everything rests on**
 
 ```
 branching [4,3,2,2,2]  ->  12 within-parent pairs, 66 between-parent
@@ -101,10 +103,11 @@ readout position.
 
 ## The instrument, before measurement
 
-The synthetic part exists as a verification baseline, before looking at data. Hierarchical manifolds with known
-ground truth, then three checks.
+Before measuring anything real, I built hierarchical manifolds with known ground
+truth and checked that the estimators recover what was planted in them. Three
+checks, in order.
 
-**1, Does the generator produce the geometry it claims?**
+**Check 1. Does the generator produce the geometry it claims?**
 
 ```
       M    rank   trace_err   D_hat/D
@@ -120,52 +123,52 @@ is why $\hat D < D$.
 
 ![spectrum recovery](figures/check1_spectrum_recovery.png)
 
-**2, How large can D be before it cannot be measured?** Within 10% up to
+**Check 2. How large can D be before it cannot be measured?** Within 10% up to
 D ≈ 30 at M=640. Across the empirical range (layer-mean D = 8–22, measured
-below) the bias moves only 0.95 → 0.92 — approximately a shared constant, so it
+below) the bias moves only 0.95 → 0.92, close enough to a shared constant that it
 **cancels in cross-manifold comparisons**.
 
 ![dimension recovery](figures/check2_dimension_recovery.png)
 
-The middle panel is the one that licenses M=640: the M=640 curve stays inside the
-±10% band across the entire range the real data occupies. Note also that at M=160
-the curve crosses $\hat D/D = 1$ near D=15 — two opposite biases cancelling, not
-accuracy. A ratio near 1 is not evidence of a good estimate.
+The middle panel is what licenses M=640: that curve stays inside the ±10% band
+across the entire range the real data occupies. It also contains a trap. At
+M=160 the curve crosses $\hat D/D = 1$ near D=15, which looks like accuracy and
+is really two opposite biases cancelling. A ratio near 1 is not evidence of a
+good estimate.
 
-**3, Does measured nesting track planted nesting?** Recovers the analytic curve
-$\sigma/\sqrt{1+\sigma^2}$ to within 0.8%.
+**Check 3. Does measured nesting track planted nesting?** It recovers the
+analytic curve $\sigma/\sqrt{1+\sigma^2}$ to within 0.8%.
 
 ![nesting recovery](figures/check3_nesting.png)
 
 The dotted line is the naive expectation that measured nesting equals the planted
-σ. It doesn't — the estimator follows $\sigma/\sqrt{1+\sigma^2}$, and the two
-diverge visibly above σ ≈ 0.3. Reading the planted value straight off the
-measurement would have overstated nesting.
+σ, and the two diverge visibly above σ ≈ 0.3. Reading the planted value straight
+off the measurement would have overstated how much nesting was there.
 
-The right panel is also where this project's main gap lives: it establishes a
-noise floor only out to σ = 1, while the real data sits at 1.5–5.5. See
-*What this does not show*.
+This panel is also where the project's main gap lives. It pins down a noise floor
+only out to σ = 1, and the real data sits at 1.5–5.5. See *What this does not
+show*.
 
-**Run out of order, on purpose:** the synthetic null assumes the within-manifold
-spectrum is a power law, $\lambda_i \propto i^{-\alpha}$. Before trusting any of
-it, is that true of the real data? Checking an assumption of the instrument
-against reality belongs before the measurement, not after.
+**Run out of order, on purpose.** The synthetic null assumes the within-manifold
+spectrum is a power law, $\lambda_i \propto i^{-\alpha}$. That assumption belongs
+to the instrument, so it should be tested against reality before the instrument
+gets used, not after.
 
 ![empirical spectrum](figures/empirical_spectrum.png)
 
 It is a power law. Layer-mean fit $r^2$ is 0.96–0.999 (`raw`) and 0.997–0.999
-(`request`) at every layer 2–28, with α between 1.0 and 1.9 — so the synthetic
+(`request`) at every layer 2–28, with α between 1.0 and 1.9, so the synthetic
 family is the right one.
 
-And **D is small: layer-mean 8–22 against a rank cap of 639.** The measurement is
-nowhere near censored, which is what makes M=640 defensible. Individual manifolds
-span 5.6–37.6, so a handful sit just above the D ≈ 30 that check 2 verified to
-within 10%; those are the least-trustworthy points in the set.
+**D is also small: layer-mean 8–22 against a rank cap of 639.** The measurement
+is nowhere near censored, which is what makes M=640 defensible. Individual
+manifolds span 5.6–37.6, so a handful sit above the D ≈ 30 that check 2 verified
+to within 10%. Those are the least trustworthy points in the set.
 
-Two exclusions, both stated rather than quietly dropped. `raw` layer 0 fits
-badly ($r^2$ 0.70, α 48) because the last token of a bare prompt takes only ~93
-distinct values across 800 prompts — it is off-scale in the right panel.
-`request` layer 0 is exactly degenerate.
+Layer 0 is excluded in both modes, for different reasons. In `raw` the fit is
+bad ($r^2$ 0.70, α 48) because the last token of a bare prompt takes only ~93
+distinct values across 800 prompts; it sits off-scale in the right panel. In
+`request` the layer is exactly degenerate, which the next section uses.
 
 ## Results
 
@@ -188,10 +191,10 @@ the same sizes gives 0.95–1.04, as it must. And **raw layer 0 gives p = 0.33**
 no taxonomy signal in the last token's embedding, strong signal by layer 2. The
 structure appears the moment the model integrates context, then saturates.
 
-`request` layer 0 is not plotted because it is *exactly* degenerate — under the
-chat template every prompt shares the same final token, so all 13 centroids
-coincide and the nesting ratio is undefined. That is a free exact null: any
-structure reported there would be a bug.
+`request` layer 0 is absent from the plot because it is *exactly* degenerate.
+Under the chat template every prompt ends in the same token, so all 13 centroids
+coincide and the ratio is undefined. That makes it a free exact null: any
+structure reported there is a bug, not a finding.
 
 ### One branch carries it
 
@@ -210,9 +213,9 @@ that p = 0.13 is lost power rather than lost effect.
 
 ### Most of it is vocabulary
 
-*Malicious Use*'s four children all concern crime and share heavy vocabulary, a
-purely lexical grouping would beat the null too. So: TF-IDF per task, residualise
-geometric distance on lexical distance, rerun the permutation.
+*Malicious Use*'s four children all concern crime and share heavy vocabulary, so
+a purely lexical grouping would beat the null too. The test: TF-IDF per task,
+residualise geometric distance on lexical distance, rerun the permutation.
 
 ```
 Malicious Use lexical distance   0.598 vs 0.713 over all pairs   (p = 0.030)
@@ -224,25 +227,25 @@ residual effect size         -0.06 to -0.12, flat with depth
 
 ![lexical control](figures/lexical_control.png)
 
-Roughly 80% of inter-category geometry is word overlap, and the siblings-share-
-vocabulary worry is real rather than hypothetical: *Malicious Use*'s children are
-significantly closer lexically than chance (p = 0.030). A residual nonetheless
-survives in `raw` at all six sampled layers. **In `request` it does not**: p =
-0.11 at layer 2 and 0.063 at layer 20, so the lexical-independent effect is
-weaker and patchier under that readout than under `raw`.
+Roughly 80% of inter-category geometry is word overlap, and the worry about
+siblings sharing vocabulary turns out to be a real one rather than a
+hypothetical: *Malicious Use*'s children sit significantly closer lexically than
+chance (p = 0.030). A residual does survive in `raw`, at all six sampled layers.
+**In `request` it does not**, with p = 0.11 at layer 2 and 0.063 at layer 20. The
+lexical-independent effect is weaker and patchier under that readout.
 
-The green line is the point of this figure. Distances are normalised by the mean
-pairwise distance at each layer, which is necessary because residual-stream norms
-grow ~15,000× across depth and raw magnitudes would climb mechanically. Once
-normalised, **the effect size is flat while p falls** — the null tightens with
-depth, the effect does not grow. Plotting p alone, as an earlier version of this
-figure did, reads as the opposite; see *Bugs found*.
+Watch the green line against the red one. Distances are normalised by the mean
+pairwise distance at each layer, which matters because residual-stream norms grow
+~15,000× across depth and unnormalised magnitudes would climb for that reason
+alone. Once normalised, **the effect size is flat while p falls.** The null is
+tightening with depth; the effect is not growing. An earlier version of this
+figure plotted p on its own and read as the opposite. See *Bugs found*.
 
 ### A second taxonomy
 
-MMLU, using its own published 4-way grouping (not one constructed here, the
-whole value of a second taxonomy is that someone else drew the boundaries).
-Subjects chosen for question length near SALAD's range, fixed before any
+MMLU, under its own published 4-way grouping rather than one constructed here.
+The whole value of a second taxonomy is that someone else drew the boundaries.
+Subjects were chosen for question length near SALAD's range, fixed before any
 activation was computed.
 
 ```
@@ -275,14 +278,15 @@ wrong direction.
 
 ![refusal](figures/refusal.png)
 
-The right panel is what an honest null looks like: the true taxonomy sits in the
-middle of its own null distribution, very slightly on the wrong side. The left
-panel shows why the ordering cuts across the taxonomy — *Adult Content* (0.90)
-and *Unfair Representation* (0.77) share a parent and sit near opposite ends.
+On the right, the true taxonomy sits mid-null, fractionally on the wrong side.
+On the left is why: the refusal ordering cuts straight across the taxonomy, with
+*Adult Content* (0.90) and *Unfair Representation* (0.77) sharing a parent while
+sitting near opposite ends of the range.
 
-This is deliberately not reported as "representation and behaviour are
-separable." Refusal is at ceiling so there is little variance for any structure
-to predict, and 12 pairs gives low power.
+The temptation is to call this "representation and behaviour are separable," and
+that would be overselling a null. Refusal is at ceiling, so there is little
+variance left for any structure to predict, and 12 pairs gives low power either
+way. The honest statement is narrower: this dataset cannot answer the question.
 
 ---
 
@@ -335,24 +339,26 @@ to predict, and 12 pairs gives low power.
 **A 100× calibration error.** The synthetic model assumed manifolds that are
 essentially points, within-spread/separation of 0.018. Measured on real data it
 is 1.5–5.5: **real manifolds are larger than the gaps between their centroids.**
-Caught by measuring the calibration constant rather than assuming it, before the
-power analysis depended on it.
+Nothing in the synthetic pipeline would have flagged this on its own. It only
+surfaced because the calibration constant was measured on real activations
+instead of being carried over from the toy model's defaults.
 
 ![empirical nesting and calibration](figures/empirical_nesting.png)
 
-The middle panel is the error. The synthetic model was built at 0.018; the real
-data sits between 1.5 and 5.5, two orders of magnitude away, so the noise floor
-the synthetic null implied was meaningless. The left panel is the nesting result
-itself and the right panel is why 12 pairs still gives a usable measurement:
-resampling sd is 0.005–0.014, because each distance is a sum over 1536
-coordinates and concentrates. High ambient dimension works *for* this
-measurement, which is not the intuition.
+The middle panel is the error itself: the synthetic model was built at 0.018 and
+the real data sits two orders of magnitude away, which made the noise floor the
+synthetic null implied meaningless. On the left is the nesting result. On the
+right is why 12 pairs still gives a usable measurement at all — resampling sd is
+0.005–0.014, because each distance sums over 1536 coordinates and concentrates.
+High ambient dimension works *for* this measurement, which is the opposite of
+what I expected going in.
 
-**A retracted interpretation.** An earlier reading — "the non-lexical effect
-emerges in late layers" — was wrong. After normalising for norm growth the
-effect size is flat and it is the null that tightens. The figure in *Most of it
-is vocabulary* originally plotted only the p-value, which made the retracted
-reading look correct; it now plots the effect size beside it.
+**A retracted interpretation.** I had read the falling p-values as "the
+non-lexical effect emerges in late layers." That was wrong. Once distances are
+normalised for norm growth the effect size is flat, and what changes with depth
+is the null. The figure in *Most of it is vocabulary* originally plotted the
+p-value on its own, which made the wrong reading look right; it now plots the
+effect size beside it.
 
 **A framing bug, found by a check written for something else.** The refusal
 script's descriptive stage printed the model's top predicted tokens as a sanity
@@ -366,11 +372,12 @@ have left stale tensors under a valid label.
 ## Repo
 
 ```
-src/acts.py          activation extraction; readout modes
+src/acts.py          activation extraction; the three readout modes
 src/cache.py         disk cache, dataset-agnostic, model loads lazily
-src/geometry.py      R_M, D_M, centre statistics, equalize_class_n
-src/synthetic.py     hierarchical generative model
-src/salad.py         SALAD design and loading
+src/geometry.py      participation ratio and effective radius. The conventions
+                     are fixed here and imported, never redefined in a script
+src/synthetic.py     the hierarchical generative model
+src/salad.py         SALAD design and loading; the design is data, not code
 src/mmlu.py          MMLU design and loading
 
 scripts/01_smoke_test.py           plumbing verification
@@ -384,16 +391,18 @@ scripts/11_lexical_control.py      lexical control
 scripts/12_refusal.py              refusal readout
 scripts/13, 14                     MMLU extraction and comparison
 
-logs/research_log.md    logs
-logs/weird.md           surprises from the process
-figures/                the plots reproduced in this README
+logs/research_log.md    prediction before each run, then the result, then what
+                        I got wrong. The primary record
+logs/weird.md           one-line surprises, not chased at the time
+logs/archive_*          the earlier truth-probe project, closed
+figures/                the plots this README embeds
 ```
 
 ## Running it
 
-CPU only. Extraction is the only slow part. Everything downstream reads cached
-tensors — seconds for the permutation tests, ~15 min for the spectra, which
-SVD 13 manifolds at every layer in both modes.
+CPU only. Extraction is the only genuinely slow part; everything downstream
+reads cached tensors. The permutation tests take seconds. The spectra take about
+fifteen minutes, since they SVD 13 manifolds at every layer in both modes.
 
 ```bash
 python scripts/02_explore_salad.py    # taxonomy tree and confound report

@@ -7,6 +7,7 @@ import numpy as np  # noqa: E402
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from synthetic import GeometryParams, HierarchySpec, generate, spectrum  # noqa: E402
+from geometry import participation_ratio  # noqa: E402
 
 OUT = "results/synthetic_results"
 N = 1536
@@ -42,7 +43,7 @@ def one_manifold(M: int, alpha: float, seed: int) -> np.ndarray:
 def main():
     os.makedirs(OUT, exist_ok=True)
     lam_true = spectrum(N, ALPHA, 1.0)
-    D_true = lam_true.sum() ** 2 / (lam_true ** 2).sum()
+    D_true = participation_ratio(lam_true)
 
     print(f"ground truth: n={N}  alpha={ALPHA}  "
           f"total variance={lam_true.sum():.4f}  analytic D={D_true:.1f}")
@@ -58,7 +59,7 @@ def main():
         curves[M] = lam_hat
 
         rank = int((lam_hat > 1e-10).sum())
-        D_hat = lam_hat.sum() ** 2 / (lam_hat ** 2).sum()
+        D_hat = participation_ratio(lam_hat)
         print(f"{M:>7} {N/M:>10.2f} {rank:>6} {lam_hat.sum():>10.4f} "
               f"{lam_hat.sum()/lam_true.sum()-1:>+10.3f} "
               f"{D_hat:>8.1f} {D_hat/D_true:>8.3f}")

@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import salad  
 from cache import cached_acts 
+from geometry import participation_ratio 
 
 OUT = "results/synthetic_results"
 MODES = ["raw", "request"]
@@ -40,15 +41,6 @@ def spec_of(A_layer: np.ndarray) -> np.ndarray:
     Xc = A_layer - A_layer.mean(axis=0)
     s = np.linalg.svd(Xc, compute_uv=False)
     return s ** 2 / (M - 1)
-
-
-def participation_ratio(lam):
-    """NaN for a degenerate manifold rather than 0/0.
-    """
-    lam = lam[lam > 0]
-    if lam.size == 0 or lam.sum() <= 0:
-        return float("nan")
-    return float(lam.sum() ** 2 / (lam ** 2).sum())
 
 
 def fit_alpha(lam: np.ndarray) -> tuple:

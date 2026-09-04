@@ -7,6 +7,7 @@ import numpy as np
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from synthetic import GeometryParams, HierarchySpec, generate, spectrum  
+from geometry import participation_ratio, effective_radius  
 
 OUT = "results/synthetic_results"
 N = 1536
@@ -50,13 +51,9 @@ def alpha_for_D(n: int, D_target: float, tol: float = 1e-3) -> float:
     return (lo+hi)/2
 
 
-def participation_ratio(lam: np.ndarray) -> float:
-    return float(lam.sum() ** 2 / (lam ** 2).sum())
-
-
-def effective_radius(lam: np.ndarray, c_norm: float) -> float:
-    """CLS convention, fixed project-wide: sqrt(sum lam^2 / sum lam) / ||c||."""
-    return float(np.sqrt((lam ** 2).sum() / lam.sum()) / c_norm)
+# participation_ratio and effective_radius come from src/geometry.py, which is
+# where the conventions are fixed. Defining them here too was how the project
+# ended up with three copies of the same formula.
 
 
 def measure(M: int, alpha: float, seed: int):

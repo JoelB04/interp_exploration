@@ -2,7 +2,7 @@
 
 Notation:
     M   points per child manifold  (samples)
-    n   ambient dimension          (neurons) for 1536 for Qwen2.5-1.5B
+    n   ambient dimension          (neurons), 1536 for Qwen2.5-1.5B
     P   number of parents
     C_p number of children of parent p
 """
@@ -48,13 +48,15 @@ class HierarchySpec:
 
 @dataclass
 class GeometryParams:
-    """sigma_ratio is the correlation parameter and the thing that power sweep varies:
+    """sigma_ratio is the correlation parameter, and the thing the power sweep
+    varies:
 
-        0  children sit exactly on their parent so perfect nesting
-        1  children scattered as widely as parents are effectively flat
+        0  children sit exactly on their parent, so nesting is perfect
+        1  children scatter as widely as the parents do, so the hierarchy is
+           effectively flat
 
-    Only the ratio is identifiable, the overall scale cancels out of every
-    dimensionless statistic, so sigma_p is at 1.
+    Only the ratio is identifiable. The overall scale cancels out of every
+    dimensionless statistic, so sigma_p is held at 1.
     """
 
     sigma_ratio: float = 0.3      # sigma_c / sigma_p
@@ -87,9 +89,11 @@ def generate(spec: HierarchySpec, params: GeometryParams, rng) -> tuple:
     alpha near 0 is isotropic (D_M goes to n), large alpha is low dimensional.
     Scale it so its total variance is within_scale^2.
 
-    The default setting is that parents are drawn isotropically in the whole space. This is unlikely empirically
-    since concepts of the same type likely share a common subspace. This is controlled with the Geometry parameter parent_subspace. 
-    Similarly for shared_within, where child shape/covariance is controlled by shared_within.
+    By default parents are drawn isotropically in the whole space. That is
+    unlikely to hold empirically, since concepts of the same type probably share
+    a common subspace; parent_subspace controls this. shared_within does the
+    same job for child shape, deciding whether every child gets the same
+    within-manifold covariance.
 
     A sweep is reproducible from the seed alone.
     """

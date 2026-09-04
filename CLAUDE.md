@@ -8,8 +8,9 @@ Joel. Background: concept manifolds and Gardner-style classification capacity of
 hierarchical manifolds (Sompolinsky lab), plus philosophy of mind/language. New to
 mechanistic interpretability, competent at ML and statistical mechanics of learning.
 
-Goal: applying to Neel Nanda's MATS 12.0 stream, deadline Fri Sept 4 2026,
-11:59pm PT. The application requires a ~20-hour research project.
+Originally written for a MATS 12.0 application, which closed early. The work
+now stands as a portfolio project, so the bar is that a reader can follow the
+reasoning and check it, not that it hits a deadline.
 
 Priority is developing as a researcher over getting a perfect result. Being wrong
 in an interesting way is a good outcome here.
@@ -24,7 +25,7 @@ in depth does that structure appear?**
 Two arms, deliberately separated:
 
 - **Synthetic.** Generative hierarchical manifolds with known ground truth
-  (`src/toy.py`). Three jobs: calibrate the estimators at the M and n we
+  (`src/synthetic.py`). Three jobs: calibrate the estimators at the M and n we
   actually have; produce a null band under the exact empirical design; and
   measure how strong a hierarchy must be before this design can detect it. The
   third is the important one — it converts a null empirical result from "we
@@ -64,7 +65,7 @@ the unit of analysis manifolds rather than datasets.
 Run scripts from the repo root; `sys.path` inserts and output paths assume it:
 
 ```bash
-C:\Python313\python.exe scripts\11_explore_salad.py
+C:\Python313\python.exe scripts\02_explore_salad.py
 ```
 
 ## Notation
@@ -81,11 +82,18 @@ confusion:
 ```
 src/acts.py               load(), format_prompts(), get_acts()
 src/cache.py              disk cache for activations; model loads lazily
-src/geometry.py           R_M, D_M, centre statistics, equalize_class_n
-src/toy.py                synthetic hierarchy: specs + generate() STUB (Joel's)
-scripts/01_smoke_test.py  plumbing verification — passing
-scripts/11_explore_salad.py  taxonomy tree, structure checks, confound report
-scripts/12_audit_plot.py     prompts per level-2 task, coloured by parent
+src/geometry.py           participation_ratio, effective_radius, spectra.
+                          Conventions are fixed HERE and imported, never
+                          re-derived inside a script.
+src/synthetic.py          hierarchical generative model (Joel's)
+src/salad.py              SALAD design and loading; design is data, not code
+src/mmlu.py               MMLU design and loading
+scripts/01..03            plumbing, taxonomy exploration, audit plot
+scripts/04, 13            activation extraction (SALAD, MMLU) — the slow parts
+scripts/05, 06, 08        synthetic checks 1, 2, 3
+scripts/07, 09            empirical spectrum, empirical nesting + calibration
+scripts/10, 11, 12        random-partition null, lexical control, refusal
+scripts/14                taxonomy comparison
 data/                     gitignored; fetched on demand
 cache/                    gitignored; cached activation tensors
 results/                  gitignored; figures and grids
@@ -114,8 +122,11 @@ Verified on this setup — do not re-derive.
 - Under the chat template, the last token is the generation-prompt token and is
   identical across all examples. All example-specific information must be
   attention-transported there. This is why `src/acts.py` exposes a `mode`
-  parameter (`raw` vs `chat`) — readout position is a live experimental
-  variable, never a hardcoded default.
+  parameter — readout position is a live experimental variable, never a
+  hardcoded default. Three modes exist: `raw`, `request`, and `chat`, which is
+  RETIRED. `chat` still carries "Is the following true or false?" from the
+  closed truth-probe project; it is kept only so old cache entries stay
+  reproducible. Do not report results in it.
 - Naive cosine similarity between activations is useless here: a few massive-
   activation dimensions push every pair to ~0.99. Subtract means.
 - **RESOLVED 2026-08-28**: those dimensions do NOT dominate the covariance
@@ -177,7 +188,7 @@ produced five retractions; each of these exists because something was missed.
    synthetic null under the exact empirical design.
 2. **Equal M before any spectral comparison.** `D_M` is capped at M-1 and biased
    well below it. Comparing manifolds of different sizes measures sample size
-   and reports it as geometry. Use `equalize_class_n`.
+   and reports it as geometry. Subsample to a common M before comparing.
 3. **Report M and n alongside every geometric quantity**, plus the ratio
    `gamma = n/M`. Estimator bias is governed by that ratio.
 4. **Power before interpretation.** Know what effect size the design could
@@ -211,13 +222,13 @@ produced five retractions; each of these exists because something was missed.
 1. ~~Smoke test / plumbing~~ — done
 2. ~~Truth probes and the transfer matrix~~ — closed, see logs
 3. ~~SALAD-Bench audit and hierarchy design~~ — done
-4. Toy model, job 1: estimator calibration. Sweep M at fixed n; separately sweep
-   random-projection dimension. Check whether the bias collapses onto
-   `gamma = n/M`. Decides whether M=640 is defensible. — **current**
-5. Toy model, jobs 2 and 3: null band under the mirrored design, then a power
-   sweep over `sigma_ratio` to find the detectable effect size.
-6. Empirical: activations for the 13 chosen tasks, geometry per layer.
-7. Controls: random partition, then a matched ordinary hierarchy (MMLU is the
-   obvious candidate but the register mismatch is real and unsolved).
-8. If time: does the hierarchy survive the `attack_enhanced_set` jailbreak
-   rewrites of the same base questions?
+4. ~~Synthetic checks 1, 2 and 3: estimator calibration and nesting recovery~~ — done
+5. ~~Empirical: activations for the 13 tasks, geometry per layer~~ — done
+6. ~~Controls: random partition, lexical control, MMLU as a second taxonomy~~ — done
+7. ~~Refusal readout~~ — done, a null, and reported as one
+8. **Outstanding.** Recalibrate `within_scale` and run the power sweep at the
+   real regime (within-spread/separation 1.5–5.5, not the 0.018 check 3 used).
+   Until that exists there is no bound on what this design could have detected,
+   which is the one gap the README admits to.
+9. If ever revisited: does the hierarchy survive the `attack_enhanced_set`
+   jailbreak rewrites of the same base questions?

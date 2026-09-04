@@ -1,110 +1,82 @@
+"""Manifold geometry: the two shape statistics this project reports.
+
+Conventions are fixed here and nowhere else, so that a number quoted in the
+README can be traced to one definition. Both statistics are functions of the
+covariance eigenvalues alone, so the primitives take `lam` directly and the
+`acts`/`label` wrappers are conveniences on top.
+
+Notation, project-wide:
+    M   points per manifold (samples), equal across manifolds by construction
+    n   ambient dimension (neurons), 1536 for Qwen2.5-1.5B
+"""
+
 import numpy as np
 
 
+def participation_ratio(lam: np.ndarray) -> float:
+    """D_M = (sum_i lam_i)^2 / sum_i lam_i^2.
 
-def diff_of_means(acts: np.ndarray, labels: np.ndarray) -> np.ndarray:
-    """Unit-norm diff-of-means direction at one layer. acts (n, d) -> (d,)."""
-    d = acts[labels == 1].mean(axis=0) - acts[labels == 0].mean(axis=0)
-    return d / (np.linalg.norm(d) + 1e-12)
-
-
-def equalize_class_n(acts: np.ndarray, labels: np.ndarray, n_per_class: int,
-                     seed: int = 0):
-    """Subsample to exactly n_per_class examples of each label.
+    NaN for a degenerate manifold rather than 0/0. That case is real: under the
+    chat template every prompt shares a final token, so layer 0 has one distinct
+    point and zero variance.
     """
-    rng = np.random.default_rng(seed)
-    idx = []
-    for lab in (0, 1):
-        pool = np.where(labels == lab)[0]
-        if len(pool) < n_per_class:
-            raise ValueError(
-                f"label {lab} has {len(pool)} examples, need {n_per_class}"
-            )
-        idx.append(rng.choice(pool, n_per_class, replace=False))
-    idx = np.concatenate(idx)
-    return acts[idx], labels[idx]
-
-
-def category_spectrum(acts: np.ndarray, labels: np.ndarray, label: int):
-    """Covariance eigenvalues and centroid norm for one class manifold.
-
-    Returns (lam, ||c||) where lam is descending and length min(n_c, d).
-
-    SVD of the centred data rather than eigh of the covariance: with n_c ~ 200
-    and d = 1536 one would otherwise build a 1536x1536 matrix of rank <= 199,
-    which is slower and numerically worse.
-    """
-    X = acts[labels == label]
-    c = X.mean(axis=0)                          # (d,) centroid
-    Xc = X - c                                  # (n_c, d) centred data
-
-    s = np.linalg.svd(Xc, compute_uv=False)
-    lam = s ** 2 / (len(X) - 1)                 
-    return lam, float(np.linalg.norm(c))
-
-
-
-def manifold_radius(acts: np.ndarray, labels: np.ndarray, label: int) -> float:
-    """Effective radius of one class manifold at one layer.
-
-    Convention
-    (Chung/Lee/Sompolinsky):
-
-        R_M = sqrt( sum_i lam_i^2 / sum_i lam_i ) / ||c||
-
-    This is not the naive RMS radius sqrt(sum_i lam_i). It is weighted toward
-    the large axes with an effective radius that pairs with D_M. 
-
-    The ||c|| normalisation is load-bearing. Residual stream norm grows a lot
-    across layers, and without it layer-wise plots mostly show that growth
-    rather than anything about shape.
-    """
-    lam, c_norm = category_spectrum(acts, labels, label)
-    R_M = np.sqrt((lam ** 2).sum() / lam.sum())
-    return float(R_M / c_norm)
-
-
-def manifold_dimension(acts: np.ndarray, labels: np.ndarray, label: int) -> float:
-    """Participation-ratio dimension of one class manifold at one layer.
-
-        D_M = (sum_i lam_i)^2 / sum_i lam_i^2
-    """
-    lam, _ = category_spectrum(acts, labels, label)
+    lam = np.asarray(lam, dtype=float)
+    lam = lam[lam > 0]
+    if lam.size == 0:
+        return float("nan")
     return float(lam.sum() ** 2 / (lam ** 2).sum())
 
 
-def centre_separation(acts: np.ndarray, labels: np.ndarray) -> float:
+def effective_radius(lam: np.ndarray, c_norm: float) -> float:
+    """R_M = sqrt(sum_i lam_i^2 / sum_i lam_i) / ||c||   (Chung/Lee/Sompolinsky).
 
-    X1, X0 = acts[labels == 1], acts[labels == 0]
-    dc = X1.mean(axis=0) - X0.mean(axis=0)
-    u = dc / (np.linalg.norm(dc) + 1e-12)
+    Not the naive RMS radius sqrt(sum_i lam_i). This one is weighted toward the
+    large axes and pairs with the participation ratio above.
 
-    s1, s0 = X1 @ u, X0 @ u
-    pooled = np.sqrt(0.5 * (s1.var(ddof=1) + s0.var(ddof=1)))
-    return float(np.linalg.norm(dc) / (pooled + 1e-12))
+    The ||c|| normalisation is load-bearing. Residual-stream norm grows by four
+    orders of magnitude across depth, and without it a layer-wise plot mostly
+    shows that growth rather than anything about shape.
+    """
+    lam = np.asarray(lam, dtype=float)
+    if lam.sum() <= 0 or c_norm <= 0:
+        return float("nan")
+    return float(np.sqrt((lam ** 2).sum() / lam.sum()) / c_norm)
 
+
+def category_spectrum(acts: np.ndarray, labels: np.ndarray, label):
+    """Covariance eigenvalues and centroid norm for one manifold.
+
+    Returns (lam, ||c||), lam descending, length min(M - 1, n).
+
+    SVD of the centred data rather than eigh of the covariance: with M ~ 640 and
+    n = 1536 the covariance is a 1536x1536 matrix of rank <= 639, so forming it
+    is both slower and numerically worse.
+    """
+    X = acts[labels == label]
+    c = X.mean(axis=0)
+    s = np.linalg.svd(X - c, compute_uv=False)
+    return s ** 2 / (len(X) - 1), float(np.linalg.norm(c))
+
+
+def manifold_dimension(acts: np.ndarray, labels: np.ndarray, label) -> float:
+    """Participation ratio of one manifold, from raw activations."""
+    lam, _ = category_spectrum(acts, labels, label)
+    return participation_ratio(lam)
+
+
+def manifold_radius(acts: np.ndarray, labels: np.ndarray, label) -> float:
+    """Effective radius of one manifold, from raw activations."""
+    lam, c_norm = category_spectrum(acts, labels, label)
+    return effective_radius(lam, c_norm)
 
 
 def centre_correlation_matrix(centroids: np.ndarray) -> np.ndarray:
     """Pairwise cosine between manifold centroids, after removing the grand mean.
 
-    centroids (M, d), one row per manifold -> (M, M).
-
+    centroids (K, n), one row per manifold -> (K, K). Removing the grand mean is
+    not optional: a handful of massive-activation dimensions push every raw
+    pairwise cosine to ~0.99 regardless of content.
     """
     C = centroids - centroids.mean(axis=0, keepdims=True)
     C = C / (np.linalg.norm(C, axis=1, keepdims=True) + 1e-12)
     return C @ C.T
-
-
-def centre_cosine_degeneracy_check(acts: np.ndarray, labels: np.ndarray) -> dict:
-    """Demonstrate why two-class centre correlation carries no information."""
-
-    c1 = acts[labels == 1].mean(axis=0)
-    c0 = acts[labels == 0].mean(axis=0)
-
-    def cos(a, b):
-        return float(a @ b / ((np.linalg.norm(a) + 1e-12) * (np.linalg.norm(b) + 1e-12)))
-
-    grand = acts.mean(axis=0)
-    return dict(raw=cos(c1, c0), centred=cos(c1 - grand, c0 - grand))
-
