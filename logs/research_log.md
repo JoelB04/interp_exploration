@@ -255,6 +255,37 @@ the centroid.
 
 --------------------------------------------------------------------------------
 
+## 2026-09-04 -- housekeeping: geometry.py was dead code
+
+Not a result, recorded because the repo convention is that removed code gets a
+git pointer here rather than vanishing.
+
+`src/geometry.py` held eight functions and NOTHING imported any of them. Mean-
+while scripts 05, 06 and 07 each carried their own copy of the participation
+ratio. So the file that the README cites as fixing the project's conventions was
+code that never ran, and the conventions were actually being re-derived three
+times.
+
+Half of it was truth-probe residue: `diff_of_means`, `equalize_class_n`,
+`centre_separation` and `centre_cosine_degeneracy_check` all assume labels in
+{0,1} and cannot express 13 manifolds. That is why the manifold scripts quietly
+reimplemented what they needed instead of importing.
+
+Removed those four; kept and generalised the rest; added `participation_ratio`
+and `effective_radius` as primitives on the eigenvalues, which is the level the
+scripts actually work at. Scripts 05, 06, 07 now import them.
+
+    git show e1d086b:src/geometry.py     # the four removed functions
+
+Verified inert: check 1 and check 2 reproduce their tables exactly, and
+check1/check2/empirical_spectrum are byte-identical to the pre-refactor PNGs.
+
+**Read.** Worth noticing how this happened. The conventions were written down in
+CLAUDE.md and in the README, and were followed -- the arithmetic is right
+everywhere. What drifted was the claim about WHERE they lived. Documentation
+saying a module is authoritative does not make it imported.
+
+
 ## STANDING CLAIMS
 
 *(amended 2026-09-04 after the re-run in `request`; see session 7)*
