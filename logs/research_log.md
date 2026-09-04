@@ -265,6 +265,40 @@ the centroid.
 
 --------------------------------------------------------------------------------
 
+## 2026-09-04 -- session 8: power sweep at the real regime
+
+**Question.** What nesting could this design actually have detected? Check 3
+verified the estimator but ran at within-spread/separation 0.018; the real data
+sits at 1.5-5.8. Until that is redone at the real regime, every null in this
+project says "we saw nothing" rather than bounding what there was to see.
+
+**Prediction (written before running, Claude's -- Joel's not recorded).**
+Centroid estimation error has magnitude within_scale/sqrt(M). At calib = 2.38
+that is 2.38/25.3 = 0.094 of the between-centroid distance, so:
+
+  - the noise floor at sigma = 0 should rise from check 3's 0.001 to about 0.13,
+    a hundredfold, since two independent centroid errors enter each distance
+  - but a measured ratio at fixed sigma should inflate only ~0.03, because the
+    error adds in quadrature against a much larger separation
+  - so power should survive at the observed effect (0.756-0.772) but the margin
+    will be thinner than p = 0.0005-0.015 makes it sound
+  - I expect the MDE at 80% power to land near ratio 0.80-0.85. If it comes out
+    below 0.75 the design was underpowered and the positive result needs
+    re-examining; if above 0.9 the design had more headroom than I think.
+
+**Setup.** `scripts/15_power_sweep.py`. Exact empirical design: 13 manifolds,
+branching [4,3,2,2,2], M=640, n=1536, alpha=1.3, matched random-partition
+permutation test, 2000 permutations, 300 seeds per sigma. within_scale solved by
+bisection to reproduce the measured calib per mode.
+
+Runs on centroids alone. The sample mean of M draws from N(0, Sigma_w) is
+exactly N(0, Sigma_w/M), so the M x n cloud never has to be built, and since
+distances are invariant under the orthogonal U the sweep stays in the
+eigenbasis. Stage B checks this against `generate()` instead of asserting it.
+
+**Result.** *(pending -- run in progress at time of writing)*
+
+
 ## 2026-09-04 -- housekeeping: geometry.py was dead code
 
 Not a result, recorded because the repo convention is that removed code gets a
