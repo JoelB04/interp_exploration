@@ -1,4 +1,4 @@
-# How much of concept geometry is just vocabulary?
+﻿# How much of concept geometry is just vocabulary?
 
 Measuring whether a language model's representational geometry reflects an
 externally-given category taxonomy — and how much of any such structure survives
