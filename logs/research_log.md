@@ -8,6 +8,16 @@ There are synthetic hierarchical manifolds with known
 ground truth, to calibrate the estimators and bound what this design could
 detect. And real prompts through the model, geometry per layer.
 
+This log is append-only, so entries before 2026-09-04 cite the old script
+numbers. The scripts were renumbered contiguously when the truth-probe project
+was split out. The mapping:
+
+    16 -> 07   18 -> 09   19 -> 10   20 -> 11   21 -> 12   22 -> 13   23 -> 14
+    11 -> 02   12 -> 03   13 -> 04   14 -> 05   15 -> 06   17 -> 08
+
+Entries before session 7 also report `chat` as the second readout mode. It was
+retired; session 7 re-ran those results in `request` and records what changed.
+
 
 ## 2026-08-27/28: verifying the synthetic generator
 
