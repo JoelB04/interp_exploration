@@ -1,56 +1,18 @@
-"""Session 6b: SALAD against MMLU, matched.
-
-Does representational geometry reflect an externally-given category hierarchy in
-general, or is the SALAD result specific to harm?
-
-Everything is held equal except the taxonomy:
-
-  M = 200 for both. Forced by MMLU -- only 3 of 57 subjects have >=640 rows. So
-      SALAD is subsampled from its cached 640-800 down to 200. Free, no new
-      forward passes. SALAD@640 remains the primary result reported elsewhere;
-      this is the matched comparison.
-
-  Same statistic, same permutation machinery, same lexical control.
-
-  Z-SCORES, not raw nesting ratios. Branching differs -- SALAD [4,3,2,2,2] with
-  12 within-parent pairs, MMLU [4,3,3,3] with 15 -- and four official MMLU
-  categories cannot be made into five without inventing structure. Each dataset
-  is therefore compared against ITS OWN matched permutation null, and
-  (real - null_mean)/null_sd is comparable across the two where the raw ratio
-  is not.
-
-READING THE OUTCOME
-  both strongly negative  -> geometry reflects externally-given taxonomies in
-                             general. The SALAD finding is real but not about
-                             harm, which is a broader and cleaner claim.
-  SALAD only              -> something specific to harm categories, but the
-                             register difference (imperative requests vs exam
-                             stems) is an alternative explanation that this
-                             design cannot exclude.
-  MMLU only               -> the SALAD effect is weak, and the harm framing was
-                             the wrong place to look.
-  neither                 -> the M=640 result does not survive at M=200, which
-                             would point at power rather than at taxonomy.
-
-Run from the repo root:  python scripts/23_compare_taxonomies.py
-Cache only.
-"""
-
 import os
 import sys
 from itertools import combinations
 
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
+import matplotlib.pyplot as plt  
+import numpy as np  
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import mmlu  # noqa: E402
-import salad  # noqa: E402
-from cache import cached_acts  # noqa: E402
+import mmlu 
+import salad 
+from cache import cached_acts  
 
 OUT = "results"
 M_EQUAL = 200
@@ -63,7 +25,7 @@ DATASETS = {"SALAD": (salad, ""), "MMLU": (mmlu, "mmlu:")}
 
 
 def _no_loader():
-    raise RuntimeError("cache miss -- run the extraction scripts first")
+    raise RuntimeError("cache miss run the extraction scripts first")
 
 
 def centroids(mod, tag, mode):

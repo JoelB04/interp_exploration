@@ -30,10 +30,7 @@ class HierarchySpec:
         return self.n_children * self.M
 
     def pair_counts(self) -> tuple:
-        """(within-parent pairs, between-parent pairs) among child manifolds.
-
-        This is the actual n of the nesting test, it is much smaller than
-        the number of manifolds. 
+        """(within-parent pairs, between-parent pairs) among child manifolds. 
         """
         c = self.branching
         within = sum(k * (k - 1) // 2 for k in c)
@@ -42,7 +39,6 @@ class HierarchySpec:
 
     @classmethod
     def from_labels(cls, y_parent, y_child, M, n=1536):
-        """Read the branching structure off real data."""
         y_parent, y_child = np.asarray(y_parent), np.asarray(y_child)
         branching = []
         for p in np.unique(y_parent):
@@ -58,15 +54,17 @@ class GeometryParams:
         1  children scattered as widely as parents are effectively flat
 
     Only the ratio is identifiable, the overall scale cancels out of every
-    dimensionless statistic, so sigma_p is pinned at 1.
+    dimensionless statistic, so sigma_p is at 1.
     """
 
     sigma_ratio: float = 0.3      # sigma_c / sigma_p
     within_scale: float = 1.0     # within-manifold spread, relative to sigma_p
     alpha: float = 1.5            # within-manifold spectrum: lambda_i ~ i^-alpha
-    parent_subspace: int = 0      # 0 = parents isotropic in R^n;
+
+    parent_subspace: int = 0      # 0 = parents isotropic in R^n
                                   # k > 0 = parent centres confined to a
                                   # k-dimensional subspace
+                                  
     shared_within: bool = True    # same within-covariance for every child
 
 

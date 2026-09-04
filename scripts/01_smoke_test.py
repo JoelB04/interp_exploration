@@ -1,26 +1,6 @@
-"""
-Session 1 smoke test.
-
-Goal: prove to yourself that you can get activations out of a model and that you
-know exactly what tensor you are holding. No science here. This is plumbing.
-
-Every assert in this file is a claim you should be able to justify out loud before
-you run it. If one fails, that is the script working correctly -- it means your
-mental model and the library disagree, and you want to find that out now rather
-than in hour 14 of a 20-hour project.
-
-Run from the repo root:  python scripts/01_smoke_test.py
-"""
-
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
-# Start small. You want a feedback loop measured in seconds. Scale up only after
-# you have committed to a project. Check what is actually available to you and
-# what has a pre-fitted J-lens before settling.
 MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
 
 if torch.cuda.is_available():
@@ -32,20 +12,12 @@ else:
 
 print(f"device={DEVICE} dtype={DTYPE}")
 
-
-# ---------------------------------------------------------------------------
-# Load
-# ---------------------------------------------------------------------------
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME, torch_dtype=DTYPE, device_map=DEVICE
 )
 model.eval()
 
-# Decoder-only models must be LEFT padded if you want to grab the last real token
-# at index -1 for every row in a batch. Right padding silently gives you the
-# activation over a pad token. This is the single most common quiet bug in probe
-# work -- it does not crash, it just degrades your results.
 tokenizer.padding_side = "left"
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
@@ -56,9 +28,7 @@ D_MODEL = cfg.hidden_size
 print(f"n_layers={N_LAYERS}  d_model={D_MODEL}  vocab={cfg.vocab_size}")
 
 
-# ---------------------------------------------------------------------------
-# 1. Shapes: what does output_hidden_states actually give you?
-# ---------------------------------------------------------------------------
+# Check shapes
 def chat(prompt: str) -> str:
     """Wrap a bare string in the model's chat template.
 
@@ -81,24 +51,11 @@ with torch.no_grad():
 
 hs = out.hidden_states
 
-# hidden_states is a tuple of length n_layers + 1, NOT n_layers.
-# Index 0 is the embedding output, before any transformer block has run.
-# So hs[i] is the residual stream AFTER block i-1. Off-by-one here means you
-# report results for the wrong layer, and nothing will ever tell you.
 assert len(hs) == N_LAYERS + 1, f"expected {N_LAYERS + 1} hidden states, got {len(hs)}"
 assert hs[0].shape == (1, inputs.input_ids.shape[1], D_MODEL), hs[0].shape
 print(f"hidden_states: tuple of {len(hs)}, each {tuple(hs[0].shape)} = (batch, seq, d_model)")
 
 
-# ---------------------------------------------------------------------------
-# 2. Is the final hidden state pre- or post- final layernorm?
-# ---------------------------------------------------------------------------
-# This varies across model families and HF versions, and it matters: if you build
-# a logit-lens baseline on the wrong assumption your early-layer readouts will be
-# garbage in a way that looks like a real (negative) finding.
-#
-# Test empirically rather than trusting any docstring, including mine. If
-# unembedding hs[-1] reproduces the logits, the norm has already been applied.
 with torch.no_grad():
     direct = model.lm_head(hs[-1])
 
@@ -108,19 +65,13 @@ print("  -> final norm IS already applied" if matches else
       "  -> final norm is NOT applied; call model.model.norm() before unembedding")
 
 
-# ---------------------------------------------------------------------------
-# 3. Forward hooks: the same thing the hard way
-# ---------------------------------------------------------------------------
-# output_hidden_states only gives you the residual stream between blocks. The
-# moment you want an attention head output, an MLP activation, or to *edit* a
-# value mid-forward (which is every steering and ablation experiment), you need
-# hooks. Learn them now on a case where you can check the answer.
+# Forward hooks
 captured = {}
 
 
 def make_hook(name):
     def hook(module, layer_input, layer_output):
-        # Decoder blocks return a tuple; the residual stream is element 0.
+        # Decoder blocks return a tuple, the residual stream is element 0.
         captured[name] = (layer_output[0] if isinstance(layer_output, tuple)
                           else layer_output).detach()
     return hook
@@ -134,14 +85,10 @@ handle.remove()  # ALWAYS remove. Leaked hooks stack silently and corrupt later 
 
 # The hook fires on the output of block LAYER, which is hs[LAYER + 1].
 assert torch.allclose(captured["mid"], hs[LAYER + 1], atol=1e-3), \
-    "hook output and hidden_states disagree -- resolve this before going further"
+    "hook output and hidden_states disagree"
 print(f"hook on layers[{LAYER}] matches hidden_states[{LAYER + 1}]")
 
 
-# ---------------------------------------------------------------------------
-# 4. Batching: does left padding actually work?
-# ---------------------------------------------------------------------------
-# Deliberately different lengths so padding is exercised.
 prompts = [
     chat("Is the sky blue?"),
     chat("Is the following statement true or false: the Nile is in South America?"),
@@ -155,7 +102,6 @@ with torch.no_grad():
 # With left padding every sequence's last real token sits at index -1.
 batched_last = batched[:, -1, :]
 
-# Verify against one-at-a-time, which needs no padding at all.
 solo_last = []
 for p in prompts:
     ii = tokenizer(p, return_tensors="pt").to(DEVICE)
@@ -166,18 +112,7 @@ solo_last = torch.stack(solo_last)
 max_diff = (batched_last - solo_last).abs().max().item()
 print(f"batched vs unbatched last-token, max abs diff: {max_diff:.4f}")
 assert max_diff < 0.5, "batching is changing your activations -- check padding_side"
-# Note: this will NOT be exactly zero. Padding perturbs attention slightly and
-# fp16 accumulates differently across batch sizes. Small nonzero is expected;
-# large means a real bug. Knowing which is which is a skill worth building.
 
-
-# ---------------------------------------------------------------------------
-# 5. Sanity: does the residual stream even carry the signal you want?
-# ---------------------------------------------------------------------------
-# Cheapest possible pilot before you build a whole probing pipeline. Two clearly
-# true and two clearly false statements. If the true/false pairs are not more
-# similar within-class than across-class at SOME layer, stop and debug the setup
-# rather than concluding anything about the model.
 true_stmts = ["Paris is the capital of France.", "Water is composed of hydrogen and oxygen."]
 false_stmts = ["Paris is the capital of Japan.", "Water is composed of iron and neon."]
 

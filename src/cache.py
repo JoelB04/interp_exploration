@@ -1,19 +1,3 @@
-"""Disk cache for activations.
-
-This is the highest-leverage file in the repo. A full sweep of forward passes is
-tens of minutes of CPU; loading the same thing from disk is a couple of seconds.
-Compute once, then iterate on the analysis as many times as you like.
-
-Dataset-agnostic by design. The caller supplies a `loader` callable that returns
-the prompts and whatever metadata belongs with them; the cache never knows which
-dataset it is holding. This is a change from the session-3 version, which
-imported a geometry-of-truth loader directly and could only cache that.
-
-The model is loaded LAZILY, and the loader is only CALLED on a miss -- if
-everything you asked for is cached, no model is constructed and no dataset is
-fetched, so a re-run starts instantly.
-"""
-
 import hashlib
 import os
 
@@ -35,8 +19,7 @@ def _handle():
 
 
 def _key(tag: str, mode: str, M: int, seed: int) -> str:
-    """Cache filename. Includes the model name -- switching models must not
-    silently reuse another model's activations."""
+
     raw = f"{MODEL_NAME}|{tag}|{mode}|{M}|{seed}"
     digest = hashlib.sha256(raw.encode()).hexdigest()[:8]
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in tag)[:40]
@@ -44,21 +27,7 @@ def _key(tag: str, mode: str, M: int, seed: int) -> str:
 
 
 def cached_acts(tag: str, mode: str, loader, M: int, seed: int = 0):
-    """Last-token activations at every layer, cached to disk.
 
-    tag     cache key. Any string that uniquely names this slice of data.
-    mode    'raw' or 'chat' -- readout position, see acts.format_prompts.
-    loader  zero-argument callable returning (statements, meta_dict).
-            Called ONLY on a cache miss. meta_dict is stored alongside the
-            activations and returned unchanged; put labels, parent/child ids,
-            or anything else you need there.
-    M       points in this slice. Part of the cache key, so changing it is a
-            miss rather than a silent reuse.
-
-    Returns (acts, meta) where acts is float32 (M, n_layers + 1, n) on CPU.
-    Index 0 of the middle axis is the embedding; index i is the output of
-    block i-1.
-    """
     os.makedirs(CACHE_DIR, exist_ok=True)
     path = os.path.join(CACHE_DIR, _key(tag, mode, M, seed))
 
@@ -86,6 +55,5 @@ def cached_acts(tag: str, mode: str, loader, M: int, seed: int = 0):
 
 
 def cache_status(tags, modes, M: int, seed: int = 0):
-    """What is already on disk. Cheap -- call before a long sweep."""
     return [(t, m, os.path.exists(os.path.join(CACHE_DIR, _key(t, m, M, seed))))
             for t in tags for m in modes]

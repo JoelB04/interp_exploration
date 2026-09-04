@@ -1,51 +1,6 @@
-"""MMLU as a second taxonomy, mirroring src/salad.py exactly.
-
-Not a "control" so much as a second test of the same question: does a model's
-representational geometry reflect an externally-given category hierarchy? SALAD
-is a harm taxonomy; MMLU is an academic one. They share almost nothing in
-content or form, which makes agreement between them informative and makes
-disagreement hard to attribute.
-
-Interface is identical to salad.py -- design_tasks, fetch_task, branching,
-summary -- so every analysis script switches dataset by swapping the import.
-
---------------------------------------------------------------------------
-DESIGN DECISIONS
---------------------------------------------------------------------------
-GROUPING is MMLU's own published 4-way split (STEM / humanities / social
-sciences / other), not one invented here. That matters: the whole value of a
-second taxonomy is that somebody else drew the boundaries. Hand-building a
-grouping to mirror SALAD's [4,3,2,2,2] would destroy exactly the property being
-relied on. The 13 subjects below are mapped by hand rather than by encoding all
-57, so the mapping can be checked against the MMLU repo at a glance.
-
-M = 200, forced by the data. Only 3 of 57 subjects have >=640 questions, 26
-have >=200. SALAD must therefore be SUBSAMPLED to 200 for the matched
-comparison -- free, since 800 per task are already cached. Report SALAD at
-M=640 as the primary result and SALAD@200 vs MMLU@200 as the comparison.
-
-BRANCHING is [4,3,3,3] against SALAD's [4,3,2,2,2]: 13 manifolds either way,
-but 15 within-parent pairs instead of 12. Four official categories cannot be
-made into five without inventing structure. Compare z-scores against each
-dataset's own matched permutation null rather than raw nesting ratios, and the
-difference stops mattering.
-
-QUESTION STEM ONLY, no answer choices. Appending four options would make these
-much longer and structurally unlike a request.
-
-SUBJECT SELECTION prefers subjects whose mean question length falls near
-SALAD's 77-102 characters, from among those with >=200 questions. This is a
-deliberate reduction of the register mismatch, not cherry-picking on the
-outcome -- length is fixed before any activation is computed. Excluded on
-length: professional_law (830 chars), high_school_world_history (1342),
-professional_medicine (654), moral_scenarios (322), high_school_statistics
-(267), professional_accounting (239).
-"""
-
 import numpy as np
 
-# subject -> official MMLU category. Verify against the categories.py in
-# hendrycks/test if you want to check the mapping.
+
 DESIGN = {
     # STEM
     "conceptual_physics":         "STEM",             # 235 rows,  76 chars
@@ -66,8 +21,8 @@ DESIGN = {
     "nutrition":                  "other",            # 306,       91
 }
 
-M_DESIGN = 200          # forced by sociology at 201 rows
-EXTRACT_CAP = 300       # cache above M for headroom, as with SALAD
+M_DESIGN = 200         
+EXTRACT_CAP = 300      
 
 _DATA = None
 
@@ -86,7 +41,7 @@ def _rows():
 def design_tasks():
     """[(subject, category), ...], deterministically ordered.
 
-    Sorted by category then subject so y_parent cannot silently permute between
+    Sorted by category then subject so y_parent cannot permute between
     runs or between this and the synthetic mirror.
     """
     return sorted(DESIGN.items(), key=lambda kv: (kv[1], kv[0]))

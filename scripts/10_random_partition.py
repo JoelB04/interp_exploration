@@ -1,53 +1,17 @@
-"""Session 5b: the random-partition null. Standard 1, first tier.
-
-The measured nesting ratio is ~0.76. The question this script answers is whether
-that number says anything about SALAD's TAXONOMY, or merely about these 13
-manifolds sitting where they sit.
-
-Shuffle which tasks belong to which parent, keeping the group sizes exactly
-[4, 3, 2, 2, 2], and recompute. Identical sizes are not a detail: they keep the
-pair split at 12 within against 66 between, so the null differs from the real
-grouping in one respect only -- WHICH tasks are siblings.
-
-  real ratio far below the null   -> the taxonomy carries real information
-  real ratio inside the null      -> 0.76 is a property of the manifold layout,
-                                     not of the taxonomy, and the headline dies
-
-Two nulls, because they answer different questions:
-
-  PARENT SHUFFLE   permute parent labels over the 13 real task manifolds.
-                   Tests the parent structure specifically, holding the task
-                   manifolds fixed. This is the decision-relevant one.
-
-  TASK SHUFFLE     ignore the taxonomy entirely: pool all prompts, cut them
-                   into 13 fake tasks of the same sizes, group those into fake
-                   parents. Every fake task is then a random sample from one
-                   pool, so all centroids coincide up to sampling noise and the
-                   ratio must come out ~1.0. Mostly a pipeline check -- if it
-                   does not give 1.0, something upstream is wrong.
-
-Efficiency note: the 78 pairwise centroid distances are computed ONCE per
-layer, and each permutation only re-splits them. So thousands of permutations
-cost nothing.
-
-Run from the repo root:  python scripts/19_random_partition.py
-Cache only.
-"""
-
 import os
 import sys
 from itertools import combinations
 
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
+import matplotlib.pyplot as plt  
+import numpy as np  
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import salad  # noqa: E402
-from cache import cached_acts  # noqa: E402
+import salad  
+from cache import cached_acts 
 
 OUT = "results"
 MODES = ["raw", "chat"]
@@ -59,7 +23,7 @@ N_LAYERS = 29
 
 
 def _no_loader():
-    raise RuntimeError("cache miss -- run scripts/13_extract.py first")
+    raise RuntimeError("cache miss run scripts/13_extract.py first")
 
 
 def task_centroids(mode, rng):
@@ -154,7 +118,7 @@ def main():
             print(f"{l:>6} {real[l]:>8.4f} {n.mean():>10.4f} {n.std(ddof=1):>8.4f} "
                   f"{np.percentile(n, 5):>9.4f} {pvals[l]:>7.3f}")
 
-        # ---- task shuffle: pipeline check, should sit at ~1.0
+        #task shuffle: pipeline check, should sit around 1
         ts = []
         trng = np.random.default_rng(SEED + 7)
         fake = pooled_fake_tasks(mode, trng, [M_EQUAL] * T)
@@ -162,7 +126,7 @@ def main():
             d = {(i, j): float(np.linalg.norm(fake[i, l] - fake[j, l]))
                  for i, j in combinations(range(T), 2)}
             ts.append((l, ratio_from_dists(d, true_g)))
-        print("  task-shuffle check (should be ~1.0): " +
+        print("  task-shuffle check (should be about 1): " +
               ", ".join(f"L{l}:{v:.3f}" for l, v in ts))
 
         ax = axes[mi]
@@ -187,14 +151,6 @@ def main():
     print(f"\nwrote {p}")
     np.savez(os.path.join(OUT, "random_partition.npz"),
              **{f"{k}_{m}": store[m][k] for m in MODES for k in ("real", "p")})
-
-    print("\nHow to read p: the fraction of random groupings that nest at least "
-          "as tightly as\nthe real one. Small p means the taxonomy beats a "
-          "shuffle. p near 0.5 means the\n0.76 is a property of where these 13 "
-          "manifolds sit, not of how SALAD groups them.")
-    print("\nNote this is 29 layers x 2 modes = 58 tests. Do not read a single "
-          "p < 0.05 in\nisolation; look at whether a contiguous band of layers "
-          "is low together.")
 
 
 if __name__ == "__main__":

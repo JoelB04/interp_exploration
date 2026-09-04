@@ -1,5 +1,3 @@
-# Datasets. Fetched on demand by scripts/02_first_probe.py from
-# saprmarks/geometry_of_truth.
 data/
 
 # Cached activations.

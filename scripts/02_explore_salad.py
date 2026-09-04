@@ -1,30 +1,3 @@
-"""Session 4a: look at SALAD-Bench before designing anything.
-
-The point of this script is to let you DECIDE the hierarchy, not to analyse it.
-It prints the taxonomy tree with counts, checks the tree is actually a tree,
-samples questions at whatever node you ask for, and flags the surface confounds
-that could masquerade as geometry later.
-
-Read the output, then answer three questions:
-
-  1. Which two levels are your parent/child pair? Level 1 (6 domains) is almost
-     certainly too few manifolds to say anything. Level 3 (66 categories) has
-     plenty but some are near-synonymous, which would show up as a spurious
-     "these manifolds overlap" result. Level 2 (16 tasks) may be the sweet spot,
-     or 2-and-3 as a genuine parent/child pair.
-
-  2. How many points per manifold? Bounded by the smallest class you keep. Every
-     spectral quantity is biased by n, so this number must be IDENTICAL across
-     manifolds -- see equalize_class_n in src/predictors.py.
-
-  3. Which categories would you merge or drop? A taxonomy designed for
-     benchmarking coverage is not automatically a good set of manifolds.
-
-Run from the repo root:
-    python scripts/11_explore_salad.py              # tree + confound report
-    python scripts/11_explore_salad.py "O14"        # sample from matching nodes
-"""
-
 import os
 import re
 import sys
@@ -32,7 +5,7 @@ from collections import Counter, defaultdict
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from datasets import load_dataset  # noqa: E402
+from datasets import load_dataset  
 
 OUT = "results/salad_taxonomy.txt"
 SAMPLES_PER_NODE = 3
@@ -47,7 +20,7 @@ def load():
 
 def check_tree(rows):
     """A clean tree means each child has exactly one parent. If not, the
-    'hierarchy' is a DAG and nesting claims get much harder to state."""
+    hierarchy is a DAG and nesting claims get harder to state."""
     p2, p3 = defaultdict(set), defaultdict(set)
     for r in rows:
         p2[r["l2"]].add(r["l1"])
@@ -60,7 +33,7 @@ def check_tree(rows):
 
 def dup_report(rows):
     """Exact and near-duplicate questions. Duplicates inflate apparent manifold
-    tightness -- a repeated point has zero variance and shrinks the radius."""
+    tightness, a repeated point has zero variance and shrinks the radius."""
     norm = lambda s: re.sub(r"[^a-z0-9 ]", "", s.lower()).strip()
     c = Counter(norm(r["q"]) for r in rows)
     exact = sum(v - 1 for v in c.values() if v > 1)
@@ -92,7 +65,6 @@ def main():
     lines = []
     w = lines.append
 
-    # ---- structural integrity
     bad2, bad3 = check_tree(rows)
     exact_dups, uniq = dup_report(rows)
     w("=" * 78)
@@ -111,7 +83,7 @@ def main():
     else:
         w("  Clean tree: every child has exactly one parent.")
 
-    # ---- the taxonomy itself
+    # the taxonomy itself
     c1, c2, c3 = (Counter(r["l1"] for r in rows), Counter(r["l2"] for r in rows),
                   Counter(r["l3"] for r in rows))
     tree = defaultdict(lambda: defaultdict(int))
@@ -136,7 +108,7 @@ def main():
                 flag = "  << thin" if c3[cat] < 150 else ""
                 w(f"  |    - {cat:<52} {c3[cat]:>5}{flag}")
 
-    # ---- how many manifolds survive an equalised-n choice
+    #how many manifolds survive an equalised-n choice
     w("")
     w("=" * 78)
     w("MANIFOLD BUDGET   (n must be identical across manifolds)")
@@ -149,9 +121,9 @@ def main():
     w("")
     w("Read this as your core design tradeoff: more points per manifold means")
     w("less estimator bias but fewer manifolds. D_M is capped at n-1 and biased")
-    w("well below it, so n also caps the dimensionality you can even observe.")
+    w("well below it, so n also caps the dimensionality you can observe.")
 
-    # ---- surface confounds
+    # confounds
     w("")
     w("=" * 78)
     w("SURFACE CONFOUNDS   (could masquerade as geometry)")
@@ -169,7 +141,6 @@ def main():
         w(f"  -> max/min ratio {spread:.2f}"
           f"{'   CONTROL FOR THIS' if spread > 1.25 else '   probably fine'}")
 
-    # ---- first words, a proxy for phrasing template
     w("")
     w("opening word distribution by domain (template leakage check):")
     for d in c1:
@@ -187,7 +158,6 @@ def main():
     with open(OUT, "w", encoding="utf-8") as f:
         f.write(text)
     print(f"\n\nwritten to {OUT}")
-    print("Drill into any node with:  python scripts/11_explore_salad.py \"O14\"")
 
 
 if __name__ == "__main__":

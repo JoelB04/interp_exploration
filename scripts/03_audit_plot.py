@@ -1,35 +1,19 @@
-"""Session 4b: sample counts for the 16 level-2 tasks, coloured by parent domain.
-
-A quick audit plot, not an analysis. What to look for:
-
-  - Class imbalance. Manifold statistics must be computed at EQUAL n, so the
-    smallest task you keep sets n for every task you keep. The dashed guides
-    show what each candidate n costs you.
-  - Branching imbalance. Domains contribute between 1 and 5 tasks each. A
-    "hierarchy" where one parent has five children and another has one is a
-    weaker test of nesting than a balanced one.
-
-Run from the repo root:  python scripts/12_audit_plot.py
-"""
-
 import os
 import sys
 from collections import Counter, defaultdict
 
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.patches import Patch  # noqa: E402
+import matplotlib.pyplot as plt  
+from matplotlib.patches import Patch  
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-from datasets import load_dataset  # noqa: E402
+from datasets import load_dataset  
 
 OUT = "results/salad_task_counts.png"
 
-# One colour per level-1 domain. Chosen to stay distinguishable in greyscale
-# order as well as hue, since bar charts get printed.
 DOMAIN_COLOURS = {
-    "O5: Malicious Use":              "#2E8B57",   # green, as requested
+    "O5: Malicious Use":              "#2E8B57",   # green
     "O1: Representation & Toxicity":  "#C0392B",   # red
     "O2: Misinformation Harms":       "#2471A3",   # blue
     "O6: Human Autonomy & Integrity": "#8E44AD",   # purple

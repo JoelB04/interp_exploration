@@ -1,48 +1,3 @@
-"""Session 5c: is the clustering conceptual, or is it vocabulary?
-
-The random-partition null showed SALAD's parent structure beats a shuffle at
-p ~ 0.002, driven almost entirely by Malicious Use. But the four Malicious Use
-children -- Illegal Activities, Fraud, Security Threats, Influence Operations --
-all concern crime and share heavy vocabulary. A grouping built purely from word
-overlap would beat that null too.
-
-So the null we passed rules out "any grouping of these 13 manifolds looks like
-this". It does NOT rule out "the model represents topic, and siblings share
-topic words". This script separates those.
-
-Three things, in increasing strength:
-
-  1. DESCRIPTIVE. Correlation between lexical distance and geometric distance
-     over the 78 task pairs. How much of the layout is vocabulary at all?
-
-  2. IS MALICIOUS USE LEXICALLY TIGHT? If its four children are unusually
-     similar in wording, that alone predicts the geometry result and there is
-     nothing conceptual to explain.
-
-  3. THE DECISIVE TEST. Regress geometric distance on lexical distance, keep
-     the residual, and re-run the random-partition permutation on residuals.
-     If the taxonomy still beats a shuffle after removing everything word
-     overlap explains, the structure is not purely lexical.
-
-     The statistic on residuals is a DIFFERENCE, not a ratio -- residuals are
-     signed and centred near zero, so mean(within)/mean(between) is undefined.
-     Under a random grouping the difference is ~0 by construction, which makes
-     it a clean permutation statistic.
-
-Lexical representation: TF-IDF fitted on all 8320 individual prompts, so the
-IDF term is meaningful, then averaged within each task. Fitting on 13
-concatenated documents instead would make IDF nearly useless -- a word appears
-in 12 or 13 of them and carries no weight either way.
-
-WHAT EITHER ANSWER MEANS
-  survives -> siblings sit closer than their wording explains. A claim about
-              structure beyond surface form, and the interesting outcome.
-  dies     -> the geometry is tracking topic vocabulary. Still true, much less
-              surprising, and the honest headline becomes a negative one.
-
-Run from the repo root:  python scripts/20_lexical_control.py
-Cache only.
-"""
 
 import os
 import sys
@@ -50,14 +5,14 @@ from itertools import combinations
 
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
+import matplotlib.pyplot as plt  
+import numpy as np  
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import salad  # noqa: E402
-from cache import cached_acts  # noqa: E402
+import salad  
+from cache import cached_acts  
 
 OUT = "results"
 MODES = ["raw", "chat"]
@@ -68,7 +23,7 @@ SEED = 0
 
 
 def _no_loader():
-    raise RuntimeError("cache miss -- run scripts/13_extract.py first")
+    raise RuntimeError("cache miss run scripts/13_extract.py first")
 
 
 def lexical_vectors():
@@ -83,7 +38,6 @@ def lexical_vectors():
         qs = [qs[i] for i in rng.choice(len(qs), M_EQUAL, replace=False)]
         docs.extend(qs); owner.extend([ti] * len(qs))
 
-    # Fitted on individual prompts so IDF is informative; averaged after.
     V = TfidfVectorizer(lowercase=True, stop_words="english", min_df=5,
                         sublinear_tf=True)
     X = V.fit_transform(docs)
@@ -137,7 +91,7 @@ def main():
 
     lex = np.array([1.0 - float(vecs[i] @ vecs[j]) for i, j in pairs])
 
-    # ---- 2. is Malicious Use lexically tight?
+    # is Malicious Use lexically tight?
     print("LEXICAL distance (1 - tfidf cosine), within-parent pairs by parent")
     print(f"{'parent':>34} {'pairs':>6} {'mean within':>12} {'vs all pairs':>13}")
     for d in sorted(set(par)):
@@ -151,10 +105,9 @@ def main():
     lr, ln, lp = perm_diff_test(lex, groups, sizes, N_PERM, 5)
     print(f"\nlexical nesting: within - between = {lr:+.4f}, "
           f"null {ln.mean():+.4f} +/- {ln.std(ddof=1):.4f}, p = {lp:.4f}")
-    print("  (if this is significant, siblings DO share vocabulary and the "
-          "geometry result\n   needs the residual test below to mean anything)")
+    print("  (if this is significant, siblings do share vocabulary and the "
+          "geometry result")
 
-    # ---- 1 and 3
     rows = []
     fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.2))
     for mi, mode in enumerate(MODES):
@@ -168,7 +121,7 @@ def main():
                             for i, j in pairs])
             if not np.isfinite(geo).all() or geo.std() == 0:
                 continue
-            # Normalise to units of the mean pairwise distance AT THIS LAYER.
+            # Normalise to units of the mean pairwise distance at this specific layer.
             # Residual-stream norms grow ~15,000x from layer 0 to 28, so raw
             # residual magnitudes climb mechanically with depth and cannot be
             # compared across layers. Dividing by the layer mean makes the
@@ -208,7 +161,7 @@ def main():
     fig.savefig(p, dpi=150); plt.close(fig)
     print(f"\nwrote {p}")
 
-    # ---- what words actually distinguish each parent
+    # what words actually distinguish each parent
     terms = np.array(vect.get_feature_names_out())
     print("\ntop TF-IDF terms per parent (what the lexical signal is made of):")
     for d in sorted(set(par)):

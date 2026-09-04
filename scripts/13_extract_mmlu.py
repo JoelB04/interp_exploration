@@ -1,25 +1,3 @@
-"""Session 6a: cache activations for the MMLU taxonomy.
-
-Same job as 13_extract.py, pointed at src/mmlu.py. Pure compute, no decisions.
-
-Modes: raw and request. NOT chat -- chat carries the truth-probe project's
-"Is the following true or false?" framing, so it is compromised for any dataset
-and there is no reason to spend hours reproducing that on a second one.
-
-  raw      the bare question. Matches the mode SALAD's primary result uses, so
-           this is the one the comparison actually needs.
-  request  the question as a user turn. For the behavioural readout, and for
-           checking the geometry is not an artifact of one readout position.
-
-Caches up to EXTRACT_CAP (300) per subject rather than exactly M=200, so the
-analysis can subsample to any M <= the smallest cached subject without
-re-running forward passes.
-
-Idempotent per subject/mode -- safe to interrupt and restart.
-
-Run from the repo root:  python scripts/22_extract_mmlu.py
-"""
-
 import os
 import sys
 import time
@@ -27,13 +5,13 @@ import time
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import mmlu  # noqa: E402
-from cache import cached_acts, cache_status  # noqa: E402
+import mmlu  
+from cache import cached_acts, cache_status  
 
 MODES = ["raw", "request"]
 SEED = 0
-TAG = "mmlu:"          # namespaced so an MMLU subject can never collide with a
-                       # SALAD task in the shared cache directory
+TAG = "mmlu:"         
+                       
 
 
 def main():

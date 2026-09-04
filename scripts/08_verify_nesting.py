@@ -1,72 +1,31 @@
-"""Session 4g: CHECK 3 -- does the measured nesting track the planted one?
-
-Checks 1 and 2 verified the WITHIN-manifold machinery: the generator produces
-the spectrum it claims, and M=640 measures D reliably up to about 30. Check 3
-verifies the BETWEEN-manifold machinery, which is what the hierarchy claim is
-actually made of.
-
-The statistic. For every pair of child manifolds, take the distance between
-their centroids. Split those pairs by whether the two children share a parent:
-
-    nesting ratio = mean(within-parent distance) / mean(between-parent distance)
-
-Small means children huddle around their parent -- a real hierarchy. Near 1
-means the tree is decorative and children are scattered as widely as parents.
-
-WHAT IT SHOULD EQUAL, and this is worth deriving rather than assuming.
-Parent centroids are drawn N(0, I) in n dimensions, so two parents sit about
-sqrt(2n) apart. Two children of the SAME parent differ only by their own
-scatter: sigma * sqrt(2n). Two children of DIFFERENT parents differ by both,
-and the two contributions are independent, so they add in quadrature:
-sqrt(2n) * sqrt(1 + sigma^2). Hence
-
-    nesting ratio  =  sigma / sqrt(1 + sigma^2)
-
-NOT sigma itself. At sigma=0.3 that is 0.287, and an earlier one-off measurement
-gave 0.288. In Joel's rho parameterisation, sigma = sqrt(1 - rho).
-
-Two things this check is really testing:
-  - that generate() places children around parents the way it claims;
-  - that the estimator recovers it at M=640 with only 12 within-parent pairs,
-    which is the real sample size of every nesting claim in this project.
-
-That second point is the one that matters. 12 pairs is thin, 6 of them come
-from Malicious Use alone, and the error bars here are the first honest look at
-how noisy a nesting measurement is under the actual design.
-
-Run from the repo root:  python scripts/17_verify_nesting.py
-Pure numpy.
-"""
-
 import os
 import sys
 from itertools import combinations
 
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
+import matplotlib.pyplot as plt  
+import numpy as np
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from synthetic import GeometryParams, HierarchySpec, generate  # noqa: E402
+from synthetic import GeometryParams, HierarchySpec, generate  
 
 OUT = "results/synthetic_results"
 N = 1536
 M = 640
-BRANCHING = [4, 3, 2, 2, 2]          # the empirical design, mirrored exactly
+BRANCHING = [4, 3, 2, 2, 2]          
 SIGMAS = [0.0, 0.1, 0.2, 0.3, 0.45, 0.6, 0.8, 1.0]
 N_REPEATS = 12
-ALPHA = 1.12                          # ~ empirical D of 20 at n=1536
+ALPHA = 1.12                          #  empirical D of 20 at n=1536
 
 
 def nesting_ratio(X, y_parent, y_child):
     """mean within-parent centroid distance / mean between-parent.
 
     Returns (ratio, n_within, n_between) so the pair counts travel with the
-    number -- 12 against 66 here, and nobody should read the ratio without
-    them.
+    number ie 12 against 66 here.
     """
     kids = np.unique(y_child)
     cen = np.stack([X[y_child == c].mean(axis=0) for c in kids])
@@ -80,7 +39,7 @@ def nesting_ratio(X, y_parent, y_child):
 
 
 def analytic(sigma):
-    """sigma / sqrt(1 + sigma^2) -- see the module docstring."""
+    """sigma / sqrt(1 + sigma^2)"""
     return sigma / np.sqrt(1.0 + sigma ** 2)
 
 
@@ -138,11 +97,6 @@ def main():
     p = os.path.join(OUT, "check3_nesting.png")
     fig.savefig(p, dpi=150); plt.close(fig)
     print(f"\nwrote {p}")
-
-    print("\nThe right-hand panel is the number to carry forward. It is the "
-          "spread of a nesting\nmeasurement under this exact design with "
-          "nothing but seed varying -- so any\nempirical difference smaller "
-          "than it is not a finding.")
 
 
 if __name__ == "__main__":

@@ -1,76 +1,28 @@
-"""Session 4f: what shape are the REAL manifold spectra?
-
-Run out of order, deliberately. The synthetic null assumes within-manifold
-covariance follows a power law lam_i ~ i^-alpha. If real spectra are not
-power-law, that null is calibrated for the wrong shape and every downstream
-power analysis inherits the error. This is the assumption everything rests on
-and it costs a minute to test now that activations exist.
-
-Four questions:
-
-  1. Is log(lam) vs log(i) actually straight? If it bends, the power-law family
-     is wrong and the toy model needs a different Sigma_w.
-  2. What alpha, and therefore what D_M? This decides whether M=640 is anywhere
-     near adequate -- check 2 says recovery depends on how D compares to M.
-  3. Does the answer change with depth, and with readout mode?
-  4. Do the massive-activation dimensions dominate the spectrum? CLAUDE.md
-     records this as OPEN: those dims certainly dominate the centroid, but a
-     large constant offset moves the mean without contributing to covariance.
-     Now testable.
-
---------------------------------------------------------------------------
-THE CAVEAT THAT MATTERS
---------------------------------------------------------------------------
-The empirical spectrum is itself biased. Check 1 measured exactly how: middle
-eigenvalues inflated (1.40x at M=640), everything past rank M-1 truncated to
-zero, trace preserved. So an alpha fitted to the raw empirical spectrum is a
-BIASED estimate of the true alpha, biased toward looking flatter (larger D)
-in the middle and steeper at the tail.
-
-Do not report these numbers as "the dimension of harm manifolds". Report them
-as "what M=640 samples imply", and use check 2's recovery curve to say how far
-off that is likely to be. The fit here is for choosing the synthetic model's
-regime, not for making claims.
-
-Two decisions baked in below, both worth reviewing:
-
-  FIT_LO / FIT_HI  index range for the power-law fit. Excludes the first few
-                   (dominated by a handful of large directions, often not on
-                   the power law) and stops well short of rank M-1 (where the
-                   truncation artifact lives). Currently 10 to M/4.
-  M_EQUAL          all manifolds subsampled to the same M. Required -- tasks
-                   hold between 640 and 800 prompts and D is capped by M, so
-                   unequal M would be measured as differing geometry.
-
-Run from the repo root:  python scripts/16_empirical_spectrum.py
-Cache only. No model, no forward passes.
-"""
-
 import os
 import sys
 
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
+import matplotlib.pyplot as plt  
+import numpy as np  
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import salad  # noqa: E402
-from cache import cached_acts  # noqa: E402
+import salad  
+from cache import cached_acts 
 
 OUT = "results/synthetic_results"
 MODES = ["raw", "chat"]
-M_EQUAL = 640           # the design M; every manifold subsampled to this
+M_EQUAL = 640           
 FIT_LO = 10             # skip the leading few eigenvalues
-FIT_HI = M_EQUAL // 4   # stop well short of the rank cliff at M-1
+FIT_HI = M_EQUAL // 4   # stop short of the rank cliff at M-1
 N_MASSIVE = 5           # how many top-variance dims to drop in the ablation
 SEED = 0
 
 
 def _no_loader():
-    raise RuntimeError("cache miss -- run scripts/13_extract.py first")
+    raise RuntimeError("cache miss - run scripts/13_extract.py first")
 
 
 def load_task(task: str, mode: str, rng) -> np.ndarray:
@@ -92,12 +44,6 @@ def spec_of(A_layer: np.ndarray) -> np.ndarray:
 
 def participation_ratio(lam):
     """NaN for a degenerate manifold rather than 0/0.
-
-    This is not defensive padding -- chat layer 0 is EXACTLY degenerate. Every
-    example shares the generation-prompt token, so all 640 points sit on one
-    another and every eigenvalue is zero. D is genuinely undefined there, and
-    NaN is the honest answer. It also means chat layer 0 is a free exact null:
-    any non-NaN structure reported there is a bug.
     """
     lam = lam[lam > 0]
     if lam.size == 0 or lam.sum() <= 0:
@@ -108,10 +54,8 @@ def participation_ratio(lam):
 def fit_alpha(lam: np.ndarray) -> tuple:
     """Least-squares slope of log(lam) vs log(index) over [FIT_LO, FIT_HI].
 
-    Returns (alpha, r2). alpha is the NEGATIVE slope, so it matches the
-    convention lam_i ~ i^-alpha. r2 near 1 means the power law fits; a low r2
-    is the interesting outcome, because it says the toy model's Sigma_w is the
-    wrong family.
+    Returns (alpha, r2). alpha is the negative slope, so it matches the
+    convention lam_i ~ i^-alpha. r2 near 1 means the power law fits.
     """
     i = np.arange(1, len(lam) + 1)
     m = (i >= FIT_LO) & (i <= FIT_HI) & (lam > 0)
@@ -130,7 +74,7 @@ def main():
     rng = np.random.default_rng(SEED)
     n_layers = 29
 
-    # ---- 1. full layer sweep, every task, both modes
+    # full layer sweep, every task, both modes
     print(f"computing spectra: {len(tasks)} tasks x {len(MODES)} modes x "
           f"{n_layers} layers at M={M_EQUAL}")
     D = {m: np.zeros((len(tasks), n_layers)) for m in MODES}
@@ -160,7 +104,7 @@ def main():
                     f"{np.nanmean(R2[m][:,l]):>6.3f}")
         print(row)
 
-    # ---- 2. massive-activation ablation, mid layer
+    # massive-activation ablation, mid layer
     L = 14
     print(f"\nmassive-activation ablation at layer {L} "
           f"(dropping the {N_MASSIVE} highest-variance dims)")
@@ -175,7 +119,7 @@ def main():
             print(f"{t[:42]:>44} {mode:>5} {participation_ratio(spec_of(A)):>8.1f} "
                   f"{participation_ratio(spec_of(A[:, keepmask])):>10.1f} {share:>16.3f}")
 
-    # ---- plots
+    # plots
     fig, axes = plt.subplots(1, 3, figsize=(17, 5.2))
     cmap = plt.get_cmap("viridis")
     show = [1, 7, 14, 21, 28]
@@ -223,13 +167,7 @@ def main():
              **{f"alpha_{m}": AL[m] for m in MODES},
              **{f"r2_{m}": R2[m] for m in MODES})
 
-    print("\nRead the r2 first. If it is near 1 the power-law family is right "
-          "and alpha tells you\nwhich regime to put the toy model in. If it is "
-          "low, Sigma_w needs a different family\nand the null has to be "
-          "rebuilt before check 3 means anything.")
-    print("Then read D against the rank cap. D approaching M-1 means the "
-          "measurement is censored,\nnot that the manifold is that "
-          "high-dimensional.")
+
 
 
 if __name__ == "__main__":
