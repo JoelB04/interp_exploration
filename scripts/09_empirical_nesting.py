@@ -14,7 +14,7 @@ import salad
 from cache import cached_acts 
 
 OUT = "results"
-MODES = ["raw", "chat"]
+MODES = ["raw", "request"]
 M_EQUAL = 640
 N_BOOT = 50
 SEED = 0
@@ -112,7 +112,7 @@ def main():
 
     # ---- plots
     fig, axes = plt.subplots(1, 3, figsize=(17, 5.2))
-    cols = {"raw": "#2471a3", "chat": "#c0392b"}
+    cols = {"raw": "#2471a3", "request": "#c0392b", "chat": "#7d3c98"}
 
     ax = axes[0]
     for mode in MODES:

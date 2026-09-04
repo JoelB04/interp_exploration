@@ -13,7 +13,7 @@ import salad
 from cache import cached_acts 
 
 OUT = "results/synthetic_results"
-MODES = ["raw", "chat"]
+MODES = ["raw", "request"]
 M_EQUAL = 640           
 FIT_LO = 10             # skip the leading few eigenvalues
 FIT_HI = M_EQUAL // 4   # stop short of the rank cliff at M-1

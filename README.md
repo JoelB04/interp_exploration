@@ -1,5 +1,4 @@
-﻿# Do misaligned concepts have a hierarchical order to their geometry and
-# how much of concept geometry is just vocabulary?
+﻿# Do misaligned concepts have a hierarchical order to their geometry, and how much of concept geometry is just vocabulary?
 
 Measuring whether a language model's representational geometry reflects an
 externally-given category taxonomy and how much of any such structure survives
@@ -10,13 +9,17 @@ controlling for the words the categories happen to use.
 
 ---
 
-> **Motivation** Mechanistic interpretability has been of deep interest to me lately.
-It combines my background in machine learning, computational neuroscience, and philosophy 
-in a way that is hard to find. I believe there is much to learn from the discipline of computational
-neuroscience for interp research, primarily in how it sets out to describe neural circuits as representations
-and dynamic systems. This is why I have found representation geometry so interesting: it gives us a microscope to view the 
-actual organizatiom of information inside a model. The main motivation of this project is to identify whether there are distinguishing features of misaligned concept manifolds, which would hopefully help future researchers identify malignant 
-concepts when their misalignment-status is unclear.
+> **Motivation** Mechanistic interpretability has been of deep interest to me
+> lately. It combines my background in machine learning, computational
+> neuroscience, and philosophy in a way that is hard to find. I believe there is
+> much to learn from the discipline of computational neuroscience for interp
+> research, primarily in how it sets out to describe neural circuits as
+> representations and dynamic systems. This is why I have found representation
+> geometry so interesting: it gives us a microscope to view the actual
+> organization of information inside a model. The main motivation of this project
+> is to identify whether there are distinguishing features of misaligned concept
+> manifolds, which would hopefully help future researchers identify malignant
+> concepts when their misalignment-status is unclear.
 >
 > This project is inspired by Haim Sompolinsky and his work on concept manifolds
 > in neural networks, as well as my work within his lab. The thesis for the
@@ -43,10 +46,10 @@ harm, or simply because siblings use similar words?
 
 | | |
 |---|---|
-| **The taxonomy beats a matched random partition** | p = 0.001–0.011 at every layer 2–28, in both readout modes |
+| **The taxonomy beats a matched random partition** | p = 0.0005–0.015 at every layer 2–28, in both readout modes |
 | **One branch carries it** | Removing *Malicious Use* is the only exclusion that kills the effect (p 0.002 to 0.13) |
 | **~80% of it is vocabulary** | corr(lexical distance, geometric distance) = 0.73–0.91 |
-| **A residual survives the lexical control** | flat with depth; p falls 0.049 to 0.008 because the null tightens |
+| **A residual survives the lexical control, in `raw`** | flat with depth; p falls because the null tightens, not because the effect grows. Patchier in `request` |
 | **MMLU shows no comparable residual** | its z goes *positive* after the lexical control |
 | **Refusal shows no structure** | but refusal is near-ceiling (0.72–0.90), so this dataset cannot test it |
 
@@ -58,6 +61,12 @@ synthetic null model was calibrated 100× wrong**, and measuring caught it befor
 ## Design
 
 13 SALAD level-2 tasks under 5 level-1 domains, branching `[4,3,2,2,2]`.
+
+![SALAD prompts per task](figures/salad_task_counts.png)
+
+The whole design falls out of this one plot. *Persuasion and Manipulation* at 640
+prompts is the binding constraint; *Defamation* (437) and the two Socioeconomic
+Harms tasks (651 and 200) are what had to be dropped to keep M high enough.
 
 **Every manifold uses exactly M = 640 prompts.** The participation
 ratio $D$ is capped at $M-1$ and biased below it, so comparing manifolds of
@@ -79,8 +88,16 @@ branching [4,3,2,2,2]  ->  12 within-parent pairs, 66 between-parent
 Every nesting claim rests on those 12 pairs. They are reported individually
 rather than only as a mean.
 
-**Readout position is a live variable**, never hardcoded, `raw` (bare prompt),
-`request` (plain user turn), and a deprecated `chat` (see *Bugs found*).
+**Readout position is a live variable**, never hardcoded. Every result below is
+reported in two independent readouts: `raw` (bare prompt, last token) and
+`request` (plain user turn under the chat template, generation-prompt token). A
+third mode, `chat`, was retired mid-project once it turned out to carry a stale
+instruction; see *Bugs found*. No figure in this README uses it.
+
+The two modes are not redundant. Under `raw` the last token is content; under
+`request` it is a fixed template token, so every example-specific fact has to be
+attention-transported there. An effect appearing in both is not an artifact of
+readout position.
 
 ## The instrument, before measurement
 
@@ -90,7 +107,7 @@ ground truth, then three checks.
 **1, Does the generator produce the geometry it claims?**
 
 ```
-      M    rank   trace_err   $\hat{D}$/D
+      M    rank   trace_err   D_hat/D
     160     159      -0.001   0.837
     640     639      +0.004   0.938
   10240    1536      -0.001   0.997
@@ -104,12 +121,30 @@ is why $\hat D < D$.
 ![spectrum recovery](figures/check1_spectrum_recovery.png)
 
 **2, How large can D be before it cannot be measured?** Within 10% up to
-D \approx 30 at M=640. Across the empirical range (D = 10–25) the bias moves only
+D ≈ 30 at M=640. Across the empirical range (D = 10–25) the bias moves only
 0.95 → 0.92 — approximately a shared constant, so it **cancels in cross-manifold
 comparisons**.
 
+![dimension recovery](figures/check2_dimension_recovery.png)
+
+The middle panel is the one that licenses M=640: the M=640 curve stays inside the
+±10% band across the entire range the real data occupies. Note also that at M=160
+the curve crosses $\hat D/D = 1$ near D=15 — two opposite biases cancelling, not
+accuracy. A ratio near 1 is not evidence of a good estimate.
+
 **3, Does measured nesting track planted nesting?** Recovers the analytic curve
 $\sigma/\sqrt{1+\sigma^2}$ to within 0.8%.
+
+![nesting recovery](figures/check3_nesting.png)
+
+The dotted line is the naive expectation that measured nesting equals the planted
+σ. It doesn't — the estimator follows $\sigma/\sqrt{1+\sigma^2}$, and the two
+diverge visibly above σ ≈ 0.3. Reading the planted value straight off the
+measurement would have overstated nesting.
+
+The right panel is also where this project's main gap lives: it establishes a
+noise floor only out to σ = 1, while the real data sits at 1.5–5.5. See
+*What this does not show*.
 
 **Run out of order, on purpose:** before trusting the synthetic null at all, is
 the real within-manifold spectrum actually a power law? It is: r^2 = 0.95–0.999
@@ -122,18 +157,24 @@ at every layer. And D = 10–25, far below the rank cap, so M=640 is good.
 Permuting which tasks are siblings while holding group sizes identical:
 
 ```
-null mean 1 ± 0.08        real 0.75–0.80
-p = 0.001–0.011 at layers 2–28, both readout modes
+null mean 1.00 ± 0.08     real 0.725–0.821
+p = 0.0005–0.015 at every layer 2–28, both readout modes
 ```
 
 ![random partition null](figures/random_partition.png)
 
-27 contiguous layers in two independent readouts.
+27 contiguous layers in two independent readouts. The red line sits below the
+grey band everywhere except layer 0.
 
-Two sanity checks pass. Pooling all prompts and cutting them into fake tasks
-gives 0.92–1.02, as it must. And **raw layer 0 gives p = 0.33**: no taxonomy
-signal in the last token's embedding, strong signal by layer 2. The structure
-appears the moment the model integrates context, then saturates.
+Two sanity checks pass. Pooling all prompts and cutting them into fake tasks of
+the same sizes gives 0.95–1.04, as it must. And **raw layer 0 gives p = 0.33**:
+no taxonomy signal in the last token's embedding, strong signal by layer 2. The
+structure appears the moment the model integrates context, then saturates.
+
+`request` layer 0 is not plotted because it is *exactly* degenerate — under the
+chat template every prompt shares the same final token, so all 13 centroids
+coincide and the nesting ratio is undefined. That is a free exact null: any
+structure reported there would be a bug.
 
 ### One branch carries it
 
@@ -157,17 +198,28 @@ purely lexical grouping would beat the null too. So: TF-IDF per task, residualis
 geometric distance on lexical distance, rerun the permutation.
 
 ```
-Malicious Use lexical distance   0.567 vs 0.710 over all pairs
+Malicious Use lexical distance   0.598 vs 0.713 over all pairs   (p = 0.030)
 corr(lexical, geometric)         0.73–0.91, rising with depth
-residual p                       0.049 at L2  ->  0.008 at L28
+residual p          raw      0.037 at L2  ->  0.004 at L28
+                    request  0.112 at L2  ->  0.007 at L28
+residual effect size         -0.06 to -0.12, flat with depth
 ```
 
 ![lexical control](figures/lexical_control.png)
 
-Roughly 80% of inter-category geometry is word overlap. A residual survives,
-and after normalising by the mean pairwise distance per layer which is necessary, since
-residual-stream norms grow ~15,000× across depth. The effect size is flat
-while p falls. The null tightens with depth, the effect does not grow.
+Roughly 80% of inter-category geometry is word overlap, and the siblings-share-
+vocabulary worry is real rather than hypothetical: *Malicious Use*'s children are
+significantly closer lexically than chance (p = 0.030). A residual nonetheless
+survives in `raw` at all six sampled layers. **In `request` it does not**: p =
+0.11 at layer 2 and 0.063 at layer 20, so the lexical-independent effect is
+weaker and patchier under that readout than under `raw`.
+
+The green line is the point of this figure. Distances are normalised by the mean
+pairwise distance at each layer, which is necessary because residual-stream norms
+grow ~15,000× across depth and raw magnitudes would climb mechanically. Once
+normalised, **the effect size is flat while p falls** — the null tightens with
+depth, the effect does not grow. Plotting p alone, as an earlier version of this
+figure did, reads as the opposite; see *Bugs found*.
 
 ### A second taxonomy
 
@@ -177,6 +229,8 @@ Subjects chosen for question length near SALAD's range, fixed before any
 activation was computed.
 
 ```
+raw mode, both datasets subsampled to M=200 for the matched comparison
+
 layer   SALAD z   SALAD z|lex    MMLU z   MMLU z|lex
     4     -3.59        -3.13      0.36        +1.36
    14     -2.98        -1.58     -0.37        +0.97
@@ -185,8 +239,15 @@ layer   SALAD z   SALAD z|lex    MMLU z   MMLU z|lex
 
 ![taxonomy comparison](figures/taxonomy_comparison.png)
 
-SALAD clears its null at every layer and survives the lexical control. MMLU does
-neither, after removing lexical overlap its z goes positive.
+In `raw`, SALAD clears its null at every layer and survives the lexical control;
+MMLU does neither, and after removing lexical overlap its z goes positive — the
+wrong direction. z is measured against each dataset's *own* matched null, because
+the branching differs (12 within-parent pairs against 15).
+
+`request` complicates this and is plotted alongside. There MMLU *does* nest
+(z = −3.6 at layers 22–26, comparable to SALAD), but neither dataset survives the
+lexical control cleanly. So "survives the lexical control" is a property of the
+`raw` readout, not a general property of the harm taxonomy.
 
 ### Behaviour: a null
 
@@ -195,16 +256,28 @@ reading behaviour cost zero forward passes. Refusal is near-ceiling (0.72–0.90
 and shows no clustering by parent (p = 0.60), with the point estimate in the
 wrong direction.
 
+![refusal](figures/refusal.png)
+
+The right panel is what an honest null looks like: the true taxonomy sits in the
+middle of its own null distribution, very slightly on the wrong side. The left
+panel shows why the ordering cuts across the taxonomy — *Adult Content* (0.90)
+and *Unfair Representation* (0.77) share a parent and sit near opposite ends.
+
 This is deliberately not reported as "representation and behaviour are
 separable." Refusal is at ceiling so there is little variance for any structure
 to predict, and 12 pairs gives low power.
 
 ---
 
-> **Interpretation** The coolest part of this project came from the disagreement between MMLU and
-SALAD. The fact that SALAD survived lexical control more than MMLU implies to me, at least, that there is a kind 
-of correlated-manifold structure to be found in concepts that are misaligned. What this is, however, is incredibly open
-and I can not claim confidence on any interpretation yet. The main result I hope that is taken away from this is that categorical structure of representations *can* introduce geometric quirks that, maybe one day, in the future can become a kind of dictionary or lens for what kind of concept a network is thinking of.
+> **Interpretation** The coolest part of this project came from the disagreement
+> between MMLU and SALAD. The fact that SALAD survived lexical control more than
+> MMLU implies to me, at least, that there is a kind of correlated-manifold
+> structure to be found in concepts that are misaligned. What this is, however,
+> is incredibly open and I can not claim confidence on any interpretation yet.
+> The main result I hope that is taken away from this is that categorical
+> structure of representations *can* introduce geometric quirks that, maybe one
+> day, in the future can become a kind of dictionary or lens for what kind of
+> concept a network is thinking of.
 
 ---
 
@@ -219,17 +292,24 @@ and I can not claim confidence on any interpretation yet. The main result I hope
   *Malicious Use* is four crime-related tasks.
 - **Register differs** between the two datasets (imperative requests vs exam
   stems) and this design cannot exclude it.
+- **The lexical residual is readout-dependent.** It survives at all six sampled
+  layers under `raw`, but under `request` it fails at layer 2 (p = 0.11) and is
+  marginal at layer 20 (p = 0.063). The taxonomy effect itself is robust to
+  readout; the *lexical-independent part* of it is not.
 - **No power analysis at the real regime.** The synthetic null was calibrated at
-  a within-spread/separation ratio of 0.018; reality is 1.6–5.5. Recalibrating
+  a within-spread/separation ratio of 0.018; reality is 1.5–5.5. Recalibrating
   and rerunning the power sweep is outstanding, so there is currently **no bound
   on what this design could have detected.**
 
 ---
 
-> **Next steps** Obviously this experiment would benefit from larger scaling. More manifolds, more data,
-more compute. These claims rest on two datasets. Additionally, it would be helpful to run these tests across many 
-different regimes/datasets so that we could see whether consistent trends in the manifold geometry of certain concepts emerges.
-This could end up being a useful tool for understanding what the model is thinking just by analyzing the geometry of an associated batch of responses.
+> **Next steps** Obviously this experiment would benefit from larger scaling.
+> More manifolds, more data, more compute. These claims rest on two datasets.
+> Additionally, it would be helpful to run these tests across many different
+> regimes/datasets so that we could see whether consistent trends in the manifold
+> geometry of certain concepts emerges. This could end up being a useful tool for
+> understanding what the model is thinking just by analyzing the geometry of an
+> associated batch of responses.
 
 ---
 
@@ -237,13 +317,34 @@ This could end up being a useful tool for understanding what the model is thinki
 
 **A 100× calibration error.** The synthetic model assumed manifolds that are
 essentially points, within-spread/separation of 0.018. Measured on real data it
-is 1.6–5.5: **real manifolds are larger than the gaps between their centroids.**
+is 1.5–5.5: **real manifolds are larger than the gaps between their centroids.**
 Caught by measuring the calibration constant rather than assuming it, before the
 power analysis depended on it.
 
+![empirical nesting and calibration](figures/empirical_nesting.png)
+
+The middle panel is the error. The synthetic model was built at 0.018; the real
+data sits between 1.5 and 5.5, two orders of magnitude away, so the noise floor
+the synthetic null implied was meaningless. The left panel is the nesting result
+itself and the right panel is why 12 pairs still gives a usable measurement:
+resampling sd is 0.005–0.014, because each distance is a sum over 1536
+coordinates and concentrates. High ambient dimension works *for* this
+measurement, which is not the intuition.
+
 **A retracted interpretation.** An earlier reading — "the non-lexical effect
-emerges in late layers," was wrong. After normalising for norm growth the
-effect size is flat and it is the null that tightens. Retraction is in logs.
+emerges in late layers" — was wrong. After normalising for norm growth the
+effect size is flat and it is the null that tightens. The figure in *Most of it
+is vocabulary* originally plotted only the p-value, which made the retracted
+reading look correct; it now plots the effect size beside it.
+
+**A framing bug, found by a check written for something else.** The refusal
+script's descriptive stage printed the model's top predicted tokens as a sanity
+check. They came back `True` and `False` — because `chat` mode was still
+wrapping every prompt in *"Is the following true or false?"*, a leftover from an
+earlier project. The model was answering a quiz, not deciding whether to refuse.
+Fixed by adding a new `request` mode rather than redefining `chat`, since the
+activation cache keys on the mode string and silently changing its meaning would
+have left stale tensors under a valid label.
 
 ## Repo
 
@@ -255,15 +356,16 @@ src/synthetic.py     hierarchical generative model
 src/salad.py         SALAD design and loading
 src/mmlu.py          MMLU design and loading
 
-scripts/1,2        taxonomy exploration and audit
-scripts/3           SALAD activation extraction
-scripts/4,5,6     synthetic checks 1, 2, 3
-scripts/7          empirical spectra: is it a power law?
-scripts/9           empirical nesting + calibration
-scripts/10          random-partition null
-scripts/11           lexical control
-scripts/12           refusal readout
-scripts/13,14        MMLU extraction and comparison
+scripts/01_smoke_test.py           plumbing verification
+scripts/02, 03                     taxonomy exploration and audit
+scripts/04_extract.py              SALAD activation extraction
+scripts/05, 06, 08                 synthetic checks 1, 2, 3
+scripts/07_empirical_spectrum.py   empirical spectra: is it a power law?
+scripts/09_empirical_nesting.py    empirical nesting + calibration
+scripts/10_random_partition.py     random-partition null
+scripts/11_lexical_control.py      lexical control
+scripts/12_refusal.py              refusal readout
+scripts/13, 14                     MMLU extraction and comparison
 
 logs/research_log.md    logs
 logs/weird.md           surprises from the process
@@ -299,7 +401,10 @@ Standards held throughout:
 
 1. **Equal M before any spectral comparison.** $D$ is capped at $M-1$.
 2. **Report M and n alongside every geometric quantity**, plus $\gamma = n/M$.
-3. **Power before interpretation**
+3. **Power before interpretation.** Know what the design could detect before
+   looking. Only partially met here, see *What this does not show*.
+4. **Suspicion on success.** A clean result triggers an artifact hunt: length,
+   opening-word templates, and layer-0 behaviour.
 5. **Fixed conventions.** Radius is
    $R_M = \sqrt{\sum\lambda^2 / \sum\lambda}\,/\,\lVert c\rVert$, unchanged
    throughout.

@@ -15,7 +15,7 @@ import salad
 from cache import cached_acts  
 
 OUT = "results"
-MODES = ["raw", "chat"]
+MODES = ["raw", "request"]
 M_EQUAL = 640
 LAYERS = [2, 8, 14, 20, 26, 28]
 N_PERM = 4000
@@ -23,7 +23,7 @@ SEED = 0
 
 
 def _no_loader():
-    raise RuntimeError("cache miss run scripts/13_extract.py first")
+    raise RuntimeError("cache miss run scripts/04_extract.py first")
 
 
 def lexical_vectors():
@@ -115,7 +115,7 @@ def main():
         print(f"\n=== {mode}")
         print(f"{'layer':>6} {'corr(lex,geo)':>14} {'raw p':>8} "
               f"{'resid stat':>11} {'resid p':>9}")
-        rp, pp = [], []
+        rp, pp, ep = [], [], []
         for L in LAYERS:
             geo = np.array([float(np.linalg.norm(cen[i, L] - cen[j, L]))
                             for i, j in pairs])
@@ -140,22 +140,30 @@ def main():
 
             print(f"{L:>6} {corr:>14.3f} {gp:>8.4f} {rr:>11.3f} {rpv:>9.4f}")
             rows.append((mode, L, corr, gp, rpv))
-            rp.append(corr); pp.append(rpv)
+            rp.append(corr); pp.append(rpv); ep.append(rr)
 
         ax = axes[mi]
         ax.plot(LAYERS[:len(rp)], rp, color="#2471a3", lw=2, marker="o",
                 label="corr(lexical, geometric)")
         ax.plot(LAYERS[:len(pp)], pp, color="#c0392b", lw=2, marker="s",
                 label="p, taxonomy after removing lexical")
+        # The effect SIZE, on the same axes as its p-value. Plotting p alone
+        # reads as "the effect grows with depth", which is the interpretation
+        # this project retracted: p falls because the null tightens, while the
+        # normalised effect size is flat. Both curves have to be visible for
+        # the figure to say what the text says.
+        ax.plot(LAYERS[:len(ep)], ep, color="#117864", lw=2, marker="^",
+                label="residual effect size (normalised)")
         ax.axhline(0.05, color="#c0392b", ls=":", lw=1.2)
         ax.axhline(0, color="k", lw=.8)
         ax.set_ylim(-0.2, 1.05)
         ax.set_xlabel("layer"); ax.set_title(mode, fontweight="bold")
         ax.legend(fontsize=8); ax.grid(alpha=.25)
 
-    fig.suptitle("Is the taxonomy effect conceptual or lexical? "
-                 "(red below the dotted line = survives the lexical control)",
-                 fontsize=12)
+    fig.suptitle("Is the taxonomy effect conceptual or lexical?  "
+                 "p falls with depth (red) while the effect size stays flat "
+                 "(green): the null tightens, the effect does not grow.",
+                 fontsize=11)
     fig.tight_layout()
     p = os.path.join(OUT, "lexical_control.png")
     fig.savefig(p, dpi=150); plt.close(fig)

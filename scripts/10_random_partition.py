@@ -14,7 +14,7 @@ import salad
 from cache import cached_acts 
 
 OUT = "results"
-MODES = ["raw", "chat"]
+MODES = ["raw", "request"]
 M_EQUAL = 640
 N_PERM = 2000
 N_TASKSHUF = 200
@@ -23,7 +23,7 @@ N_LAYERS = 29
 
 
 def _no_loader():
-    raise RuntimeError("cache miss run scripts/13_extract.py first")
+    raise RuntimeError("cache miss run scripts/04_extract.py first")
 
 
 def task_centroids(mode, rng):
@@ -98,7 +98,7 @@ def main():
                      for i, j in combinations(range(T), 2)}
             if not np.isfinite(list(dists.values())).all() or \
                np.allclose(list(dists.values()), 0):
-                continue                       # chat layer 0: all centroids equal
+                continue      # templated layer 0: all centroids equal
             real[l] = ratio_from_dists(dists, true_g)
             prng = np.random.default_rng(1000 + l)
             null[:, l] = [ratio_from_dists(dists, random_grouping(T, sizes, prng))

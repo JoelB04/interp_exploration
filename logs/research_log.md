@@ -202,11 +202,59 @@ compute.
 
 --------------------------------------------------------------------------------
 
+## 2026-09-04 -- session 7: re-running the SALAD results in `request`
+
+**Question.** The README was written against figures plotting `raw` and `chat`,
+but `chat` was retired mid-project for carrying the stale "Is the following true
+or false?" framing. Do the results hold in `request`, the mode that replaced it?
+
+**Prediction (written before re-running).** Held, since the framing text is a
+constant offset shared by every prompt and the nesting statistic is built from
+centroid *differences*. Expected the p-values to move a little and the direction
+to be unchanged. Would have been surprised by a sign flip.
+
+**Setup.** No new forward passes -- `request` activations for all 13 tasks were
+already cached from 2026-08-28. Changed MODES in scripts 07, 09, 10, 11 from
+["raw","chat"] to ["raw","request"] and reran. M=640, 2000 permutations
+(partition) / 4000 (lexical).
+
+**Result.** Direction unchanged, magnitudes slightly different.
+
+    random partition   raw      p 0.0005-0.0050   real 0.747-0.800
+                       request  p 0.0005-0.0145   real 0.725-0.821
+    (previously quoted as 0.001-0.011 for raw+chat)
+
+    task-shuffle sanity   raw 0.947-0.986, request 1.027-1.037  (want ~1)
+    request layer 0       exactly degenerate, as chat layer 0 was
+
+    lexical corr    raw 0.763-0.914, request 0.727-0.871
+    residual p      raw 0.037 -> 0.004 (L2 -> L28), survives at all 6 layers
+                    request 0.112 at L2, 0.063 at L20, else < 0.021
+
+**One claim weakened.** The residual does NOT survive at every layer under
+`request`. Claim 4 said it survives, full stop; that was true of raw+chat and is
+not true of raw+request. Amended below.
+
+**Also.** The lexical control figure plotted only the p-value, which visually
+argues the interpretation retracted in session 5 (effect emerging late). It now
+plots the normalised effect size beside it: flat, while p falls.
+
+**Read.** The headline result is robust to readout position. The
+lexical-independent part of it is not, and that is now stated as a limitation
+rather than left implicit in a figure nobody would check.
+
+**Next.** Recalibrate within_scale and run the power sweep at spread/separation
+1.5-5.5. Still the one real gap.
+
+--------------------------------------------------------------------------------
+
 ## STANDING CLAIMS
 
+*(amended 2026-09-04 after the re-run in `request`; see session 7)*
+
 1. SALAD's parent structure is reflected in Qwen2.5-1.5B's geometry above a
-   matched random partition: p = 0.001-0.011 at every layer 2-28, both readout
-   modes, 27 contiguous layers.
+   matched random partition: p = 0.0005-0.015 at every layer 2-28, both readout
+   modes (raw and request), 27 contiguous layers.
 2. It is carried by Malicious Use. Dropping that parent is the only exclusion
    that kills it (0.906, p = 0.13); every other parent can be removed and it
    survives. That exclusion also halves within-parent pairs 12 -> 6, so power
@@ -214,8 +262,10 @@ compute.
 3. Roughly 80% of inter-category geometry is word overlap
    (corr(lexical, geometric) 0.73-0.91, rising with depth).
 4. A residual survives the lexical control at roughly constant magnitude across
-   depth (-0.06 to -0.10 normalised), p falls with depth because the null
-   tightens, not because the effect grows.
+   depth (-0.06 to -0.12 normalised), p falls with depth because the null
+   tightens, not because the effect grows. **Readout-dependent**: survives at all
+   six sampled layers in raw, but in request it fails at L2 (p = 0.11) and is
+   marginal at L20 (p = 0.063).
 5. MMLU shows no comparable lexical-independent structure in raw mode, though
    taxonomy coherence and register are unexcluded explanations.
 6. Refusal is near-ceiling (0.72-0.90) and shows no clustering by parent
