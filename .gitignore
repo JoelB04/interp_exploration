@@ -22,3 +22,8 @@ venv/
 .idea/
 Thumbs.db
 desktop.ini
+
+# Local working notes for Claude Code. Untracked on purpose: it is scaffolding
+# for how the work gets done, not part of the work. README.md is the
+# public-facing account; logs/research_log.md is the primary record.
+CLAUDE.md
