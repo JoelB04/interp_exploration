@@ -17,7 +17,7 @@ in an interesting way is a good outcome here.
 
 ## Current direction
 
-*(as of 2026-08-27)*
+*(as of 2026-09-04; all planned sessions complete)*
 
 **Does the model organise misalignment-related concepts hierarchically, and where
 in depth does that structure appear?**
@@ -157,25 +157,40 @@ Verified on this setup — do not re-derive.
 - That design yields only **12 within-parent pairs** against 66 between-parent,
   and 6 of the 12 come from Malicious Use alone. Nesting claims rest on those 12.
 
-**Real manifold geometry** (measured 2026-08-28, M=640, all 13 tasks, all layers)
+**Real manifold geometry** (re-measured 2026-09-04 in `raw` + `request`, M=640,
+all 13 tasks, all layers. Earlier numbers here were `raw` + `chat`.)
 
-- The within-manifold spectrum IS a power law. Fit r² is 0.95–0.999 at every
-  layer in both modes, so the toy model's `lambda_i ~ i^-alpha` family is the
-  right one and the synthetic null is well-founded.
-- Fitted alpha sits at 1.15–1.7 (raw) and 1.2–1.65 (chat).
-- **D is small: 10–25, not hundreds.** Far below the M-1 = 639 rank cap, so the
-  measurement is nowhere near censored and M=640 is comfortably adequate —
-  check 1 showed only a 6% undershoot at D=38, and the bias is smaller still
-  at D≈20.
-- `raw` manifolds are consistently higher-dimensional than `chat` (peak D ≈ 22
-  vs ≈ 13–18). Consistent with chat forcing everything through one
-  attention-transported token.
-- `raw` D rises from 3 at the embedding to ~22 by layer 14, holds, then falls
-  to 13 at layer 28. `chat` is flatter, ~10, rising to 18 at the last layer.
-- `chat` layer 0 is EXACTLY degenerate — one distinct point, all eigenvalues
+- The within-manifold spectrum IS a power law. Layer-mean fit r² is 0.96–0.999
+  (`raw`) and 0.997–0.999 (`request`), so the synthetic's `lambda_i ~ i^-alpha`
+  family is the right one.
+- Fitted alpha 1.0–1.9 across both modes.
+- **D is small: layer-mean 8–22, not hundreds.** Far below the M-1 = 639 rank
+  cap, so the measurement is nowhere near censored and M=640 is adequate.
+  Per-manifold D spans 5.6–37.6, so a few sit above the D ≈ 30 that check 2
+  verified to within 10%.
+- `raw` manifolds are consistently higher-dimensional than `request`. Consistent
+  with the chat template forcing everything through one attention-transported
+  token.
+- The massive-activation dimensions are almost entirely a `raw` phenomenon.
+  Dropping the top-5 variance dims at layer 14 raises D by 8–11 in `raw`
+  (variance share 7–10%) but by 0.1–0.4 in `request` (2–3%).
+- `request` layer 0 is EXACTLY degenerate — one distinct point, all eigenvalues
   zero, D undefined. Free exact null: any structure reported there is a bug.
-- `raw` layer 0 fits badly (r² 0.76, alpha 48) because the last token of a bare
+  The same was true of `chat`.
+- `raw` layer 0 fits badly (r² 0.70, alpha 48) because the last token of a bare
   prompt takes only ~93 distinct values across 800 examples. Exclude it.
+
+**What the design can detect** (measured 2026-09-04, `scripts/15`)
+
+- Nesting is detected down to a ratio of ~0.85 and the design is blind above
+  that (80% power). Observed effect 0.760–0.775, so a margin of ~0.08.
+- The bound comes from the REAL permutation null, not the synthetic. The
+  synthetic draws exchangeable manifolds, so its null collapses as nesting
+  weakens (sd 0.079 at sigma 0.4, 0.008 at sigma 3.0) while the real null stays
+  at 0.070–0.103 at every layer. Run naively it claims power down to ratio
+  0.987, which is an artifact. Do not use the synthetic as a null model for
+  heterogeneous real manifolds without fixing that first.
+- At M=640 the centroid-estimation noise floor is 0.136, not check 3's 0.001.
 
 ## Methodological standards for this repo
 
@@ -193,7 +208,8 @@ produced five retractions; each of these exists because something was missed.
    `gamma = n/M`. Estimator bias is governed by that ratio.
 4. **Power before interpretation.** Know what effect size the design could
    detect before looking at the data. A null result without a power analysis is
-   uninterpretable — this is the single biggest lesson from session 3.
+   uninterpretable — the single biggest lesson from session 3. Now satisfied,
+   though late: the bound was computed in session 8, after the results.
 5. **Suspicion on success.** A clean result should trigger an artifact hunt.
    Check length, opening-word template, and layer-0 behaviour. Layer 0 is
    embeddings only and should show no abstract structure.
@@ -226,9 +242,15 @@ produced five retractions; each of these exists because something was missed.
 5. ~~Empirical: activations for the 13 tasks, geometry per layer~~ — done
 6. ~~Controls: random partition, lexical control, MMLU as a second taxonomy~~ — done
 7. ~~Refusal readout~~ — done, a null, and reported as one
-8. **Outstanding.** Recalibrate `within_scale` and run the power sweep at the
-   real regime (within-spread/separation 1.5–5.5, not the 0.018 check 3 used).
-   Until that exists there is no bound on what this design could have detected,
-   which is the one gap the README admits to.
-9. If ever revisited: does the hierarchy survive the `attack_enhanced_set`
-   jailbreak rewrites of the same base questions?
+8. ~~Power sweep at the real regime~~ — done, session 8. The design detects
+   nesting to ratio ~0.85; every null in the project is now bounded rather than
+   empty.
+
+Nothing is outstanding. If ever revisited:
+
+- Make the synthetic heterogeneous (per-manifold `within_scale` and spread drawn
+  to match the spread observed across the 13 real tasks). That is what would let
+  the synthetic serve as a null model directly, instead of the bound having to
+  come from the real data's own permutation null.
+- Does the hierarchy survive the `attack_enhanced_set` jailbreak rewrites of the
+  same base questions?
